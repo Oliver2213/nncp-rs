@@ -1,12 +1,15 @@
 #! nk - an nncp key generation tool
 
-use base32::{encode, Alphabet};
+use base32::encode;
 use base32::Alphabet::RFC4648;
 use crypto_box::aead::OsRng;
-use crypto_box::aead::consts::True;
 use crypto_box::{PublicKey, SecretKey};
 use ed25519_compact::KeyPair;
 use ed25519_compact::Seed;
+use snow::Builder;
+
+/// the noise pattern used by nncp
+static PATTERN: &'static str = "Noise_IK_25519_ChaChaPoly_BLAKE2b";
 
 // first, let's make an ed25519 keypair.
 fn main() {
@@ -24,5 +27,13 @@ fn main() {
     let encoded_nacl_pub = encode(b32_alph, &nacl_pubkey_bytes);
     let encoded_nacl_prv = encode(b32_alph, nacl_prv_bytes);
     println!("exchpub: {encoded_nacl_pub}");
-    println!("excprv: {encoded_nacl_prv}");
+    println!("exchprv: {encoded_nacl_prv}");
+    let nb: snow::Builder = Builder::new(PATTERN.parse().unwrap());
+    let noise_keypair = nb.generate_keypair().unwrap();
+    
+    // Now we encode .public and .private into base32 like above
+    let encoded_noise_pub = encode(b32_alph, &noise_keypair.public);
+    let encoded_noise_prv = encode(b32_alph, &noise_keypair.private);
+    println!("noisepub: {encoded_noise_pub}");
+    println!("noiseprv: {encoded_noise_prv}");
 }
