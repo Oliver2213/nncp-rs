@@ -12,6 +12,16 @@ use snow::Builder;
 /// the noise pattern used by nncp
 static PATTERN: &'static str = "Noise_IK_25519_ChaChaPoly_BLAKE2b";
 
+struct LocalNNCPNode {
+    id: [u8; 32],
+    exchpub: [u8; 32],
+    exchprv: [u8; 32],
+    signpub: [u8; 32],
+    signprv: [u8; 32],
+    noisepub: [u8; 32],
+    noiseprv: [u8; 32],
+}
+
 // first, let's make an ed25519 keypair.
 fn main() {
     let b32_alph = RFC4648 { padding: false };
