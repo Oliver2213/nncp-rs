@@ -2,8 +2,9 @@
 
 use base32::encode;
 use base32::Alphabet::RFC4648;
+use blake2::{Blake2s256, Digest};
 use crypto_box::aead::OsRng;
-use crypto_box::{PublicKey, SecretKey};
+use crypto_box::SecretKey;
 use ed25519_compact::KeyPair;
 use ed25519_compact::Seed;
 use snow::Builder;
@@ -15,9 +16,9 @@ static PATTERN: &'static str = "Noise_IK_25519_ChaChaPoly_BLAKE2b";
 fn main() {
     let b32_alph = RFC4648 { padding: false };
     println!("Generating ed25519 keypair...");
-    let key_pair = KeyPair::from_seed(Seed::generate());
-    let encoded_ed_pub = encode(b32_alph, &key_pair.pk.as_ref());
-    let encoded_ed_prv = encode(b32_alph, &key_pair.sk.as_ref());
+    let sign_keypair = KeyPair::from_seed(Seed::generate());
+    let encoded_ed_pub = encode(b32_alph, &sign_keypair.pk.as_ref());
+    let encoded_ed_prv = encode(b32_alph, &sign_keypair.sk.as_ref());
     println!("Encoded public key: {encoded_ed_pub:?}");
     println!("Encoded ed private key: {encoded_ed_prv:?}");
     println!("Creating nacl box keypair (exchpub and exchprv)...");
@@ -30,10 +31,16 @@ fn main() {
     println!("exchprv: {encoded_nacl_prv}");
     let nb: snow::Builder = Builder::new(PATTERN.parse().unwrap());
     let noise_keypair = nb.generate_keypair().unwrap();
-    
+
     // Now we encode .public and .private into base32 like above
     let encoded_noise_pub = encode(b32_alph, &noise_keypair.public);
     let encoded_noise_prv = encode(b32_alph, &noise_keypair.private);
     println!("noisepub: {encoded_noise_pub}");
     println!("noiseprv: {encoded_noise_prv}");
+    // Node ID is blake2s256 hash of the signing public key (ed25519)
+    let mut hasher: Blake2s256 = Blake2s256::new();
+    hasher.update(&sign_keypair.pk.as_ref());
+    let node_id = hasher.finalize();
+    let encoded_node_id = encode(b32_alph, node_id.as_ref());
+    println!("Node ID: {encoded_node_id}");
 }
