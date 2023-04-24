@@ -12,23 +12,46 @@ use snow::Builder;
 /// the noise pattern used by nncp
 static PATTERN: &'static str = "Noise_IK_25519_ChaChaPoly_BLAKE2b";
 
-struct LocalNNCPNode {
-    id: [u8; 32],
-    exchpub: [u8; 32],
-    exchprv: [u8; 32],
-    signpub: [u8; 32],
-    signprv: [u8; 32],
-    noisepub: [u8; 32],
-    noiseprv: [u8; 32],
+/// a full NNCP node, likely our own
+pub struct LocalNNCPNode {
+    /// Node ID
+    pub id: [u8; 32],
+    /// exchange private key
+    pub exchprv: crypto_box::SecretKey,
+    /// 
+    pub signing_kp: ed25519_compact::KeyPair,
+    /// Noise protocol keypair, used for nncp sync protocol
+    pub noise_kp: snow::Keypair,
+}
+impl LocalNNCPNode {
+    /// Generate a new local NNCP node, including keypairs for exchange, signing and the online sync protocol
+    fn generate () -> Self {
+        let sign_keypair = KeyPair::from_seed(Seed::generate());
+        let nacl_secret_key = SecretKey::generate(&mut OsRng);
+        let nacl_prv_bytes = nacl_secret_key.as_bytes().clone();
+        let nacl_pubkey_bytes = nacl_secret_key.public_key().as_bytes().clone();
+        let nb: snow::Builder = Builder::new(PATTERN.parse().unwrap());
+        let noise_keypair = nb.generate_keypair().unwrap();
+        // Node ID is blake2s256 hash of the signing public key (ed25519)
+        let mut hasher: Blake2s256 = Blake2s256::new();
+        hasher.update(&sign_keypair.pk.as_ref());
+        let node_id: [u8; 32] = hasher.finalize().try_into().unwrap();
+        LocalNNCPNode {
+            id: node_id,
+            exchprv: nacl_secret_key,
+            signing_kp: sign_keypair,
+            noise_kp: noise_keypair,
+        }
+    }
+
 }
 
 // first, let's make an ed25519 keypair.
 fn main() {
+    let node: LocalNNCPNode = LocalNNCPNode::generate();
     let b32_alph = RFC4648 { padding: false };
-    println!("Generating ed25519 keypair...");
-    let sign_keypair = KeyPair::from_seed(Seed::generate());
-    let encoded_ed_pub = encode(b32_alph, &sign_keypair.pk.as_ref());
-    let encoded_ed_prv = encode(b32_alph, &sign_keypair.sk.as_ref());
+    let encoded_ed_pub = encode(b32_alph, &node.signing_kp.pk.as_ref());
+    let encoded_ed_prv = encode(b32_alph, &node.signing_kp.sk.as_ref());
     println!("Encoded public key: {encoded_ed_pub:?}");
     println!("Encoded ed private key: {encoded_ed_prv:?}");
     println!("Creating nacl box keypair (exchpub and exchprv)...");
