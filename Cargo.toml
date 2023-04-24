@@ -2,6 +2,7 @@
 name = "nk"
 version = "0.1.0"
 edition = "2021"
+resolver = "2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,3 +12,7 @@ snow = "0.9"
 base32 = "0.3"
 crypto_box = "0.8.2"
 blake2 = "0.10.6"
+build-info = {version = "0.0.30", features =["runtime"]}
+
+[build-dependencies]
+build-info-build = "0.0.30"
