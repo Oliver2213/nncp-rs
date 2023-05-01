@@ -1,11 +1,12 @@
 /// a full NNCP node, likely our own
-
 use crate::constants;
 // use blake2::Blake2s;
+use anyhow::Error;
+use blake2::digest::Digest;
 use blake2::Blake2s256;
-use blake2::digest::{Digest};
 use crypto_box::aead::OsRng;
 use crypto_box::SecretKey;
+use crypto_box::PublicKey;
 use ed25519_compact::KeyPair;
 use ed25519_compact::Seed;
 use snow::Builder;
@@ -19,8 +20,14 @@ pub struct LocalNNCPNode {
     pub noise_kp: snow::Keypair,
 }
 impl LocalNNCPNode {
+    pub fn new(&signing_kp_bytes: [u8; ed25519_compact::KeyPair::BYTES], exch_kp_bytes: [u8; 32]) -> Result<Self, Error> {
+        let signing_kp = ed25519_compact::KeyPair::from_slice(&signing_kp_bytes)?;
+        let exch_kp = crypto_box::PublicKey::from(exch_kp_bytes);
+        
+    }
+
     /// Generate a new local NNCP node, including keypairs for exchange, signing and the online sync protocol
-    pub fn generate () -> Self {
+    pub fn generate() -> Self {
         let sign_keypair = KeyPair::from_seed(Seed::generate());
         let nacl_secret_key = SecretKey::generate(&mut OsRng);
         let nb: snow::Builder = Builder::new(constants::NOISE_PROTO_PATTERN.parse().unwrap());

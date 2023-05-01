@@ -15,6 +15,8 @@ crypto_box = "0.8.2"
 blake2 = "0.10.6"
 build-info = {version = "0.0.30", features =["runtime"]}
 clap = { version = "4.2.5", features = ["cargo", "env", "derive"] }
+anyhow = "1.0"
+thiserror = "1.0"
 
 [build-dependencies]
 build-info-build = "0.0.30"
