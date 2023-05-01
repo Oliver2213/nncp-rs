@@ -1,8 +1,9 @@
 [package]
-name = "nk"
+name = "nncp-rs"
 version = "0.1.0"
 edition = "2021"
 resolver = "2"
+description = "A rust port of the node to node copy set of tools"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
