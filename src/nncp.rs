@@ -22,7 +22,7 @@ pub struct LocalNNCPNode {
 impl LocalNNCPNode {
     pub fn new(&signing_kp_bytes: [u8; ed25519_compact::KeyPair::BYTES], exch_kp_bytes: [u8; 32]) -> Result<Self, Error> {
         let signing_kp = ed25519_compact::KeyPair::from_slice(&signing_kp_bytes)?;
-        let exch_kp = crypto_box::PublicKey::from(exch_kp_bytes);
+        let exch_sk = crypto_box::SecretKey::from(exch_kp_bytes);
         
     }
 
