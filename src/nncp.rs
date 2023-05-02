@@ -14,13 +14,13 @@ use snow::Builder;
 pub struct LocalNNCPNode {
     /// exchange private key
     pub exchprv: crypto_box::SecretKey,
-    /// Signing key (node ID derived from hash of public key)
+    /// Signing key (node ID derived from hash of this public key)
     pub signing_kp: ed25519_compact::KeyPair,
     /// Noise protocol keypair, used for nncp sync protocol
     pub noise_kp: snow::Keypair,
 }
 impl LocalNNCPNode {
-    /// Create a local nncp node given it's secret keys.
+    /// Create a local nncp node given it's secret keys. Useful when loading from a config file.
     /// Typically done after you've generated one with generate-node or the go implementation.
     pub fn new(
         signing_kp_bytes: [u8; ed25519_compact::KeyPair::BYTES],
@@ -43,6 +43,7 @@ impl LocalNNCPNode {
     }
 
     /// Generate a new local NNCP node, including keypairs for exchange, signing and the online sync protocol
+    /// An nncp node we fully control (E.G. can authenticate as, receive packets as, etc)
     pub fn generate() -> Self {
         let sign_keypair = KeyPair::from_seed(Seed::generate());
         let nacl_secret_key = SecretKey::generate(&mut OsRng);
@@ -56,7 +57,7 @@ impl LocalNNCPNode {
     }
 
     /// Returns this node's ID as bytes.
-    /// Id is blake2s256 hash of the public signing keypair.
+    /// Computed from hash of signing public key.
     pub fn id(&self) -> [u8; 32] {
         let mut hasher: Blake2s256 = Blake2s256::new();
         hasher.update(&self.signing_kp.pk.as_ref());
