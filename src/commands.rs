@@ -1,4 +1,5 @@
 //! NNCP subcommands
+#![deny(missing_docs)]
 
 use base32::encode;
 use base32::Alphabet::RFC4648;
@@ -6,12 +7,14 @@ use crate::nncp::LocalNNCPNode;
 use clap::Subcommand;
 
 #[derive(Subcommand)]
+/// all NNCP subcommands
 pub enum Commands {
     /// Generates a new node and prints it's base 32 encoded keys to stdout
     GenerateNode
 }
 
 
+/// Generate a local node and print its keys and ID to stdout
 pub fn generate_node() {
     let node: LocalNNCPNode = LocalNNCPNode::generate();
     let b32_alph = RFC4648 { padding: false };
