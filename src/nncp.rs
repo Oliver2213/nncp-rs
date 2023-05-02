@@ -5,8 +5,8 @@ use anyhow::Error;
 use blake2::digest::Digest;
 use blake2::Blake2s256;
 use crypto_box::aead::OsRng;
-use crypto_box::SecretKey;
 use crypto_box::PublicKey;
+use crypto_box::SecretKey;
 use ed25519_compact::KeyPair;
 use ed25519_compact::Seed;
 use snow::Builder;
@@ -20,10 +20,26 @@ pub struct LocalNNCPNode {
     pub noise_kp: snow::Keypair,
 }
 impl LocalNNCPNode {
-    pub fn new(&signing_kp_bytes: [u8; ed25519_compact::KeyPair::BYTES], exch_kp_bytes: [u8; 32]) -> Result<Self, Error> {
+    /// Create a local nncp node given it's secret keys.
+    /// Typically done after you've generated one with generate-node or the go implementation.
+    pub fn new(
+        signing_kp_bytes: [u8; ed25519_compact::KeyPair::BYTES],
+        exch_kp_bytes: [u8; 32],
+        noise_prv_bytes: Vec<u8>,
+        noise_pub_bytes: Vec<u8>,
+    ) -> Result<Self, Error> {
         let signing_kp = ed25519_compact::KeyPair::from_slice(&signing_kp_bytes)?;
         let exch_sk = crypto_box::SecretKey::from(exch_kp_bytes);
-        
+        let noise_kp = snow::Keypair {
+            private: noise_prv_bytes,
+            public: noise_pub_bytes,
+        };
+        let node = LocalNNCPNode {
+            exchprv: exch_sk,
+            signing_kp: signing_kp,
+            noise_kp: noise_kp,
+        };
+        Ok(node)
     }
 
     /// Generate a new local NNCP node, including keypairs for exchange, signing and the online sync protocol
