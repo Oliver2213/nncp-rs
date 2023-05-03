@@ -1,13 +1,13 @@
 //! NNCP subcommands
 
-use crate::nncp::LocalNNCPNode;
+use nncp_rs::nncp::LocalNNCPNode;
 use base32::encode;
 use base32::Alphabet::RFC4648;
 use clap::Parser;
 use clap::Subcommand;
 use std::path::PathBuf;
 // use crate::cli;
-use crate::constants;
+use nncp_rs::constants;
 
 #[derive(Subcommand)]
 #[deny(missing_docs)]

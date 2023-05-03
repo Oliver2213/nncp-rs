@@ -1,6 +1,6 @@
 //! nncp-rs - node to node copy tools
 use clap::Parser;
-use nncp_rs::cli;
+mod cli;
 
 fn main() {
     let cli = cli::Cli::parse();
