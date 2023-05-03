@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize)]
-/// Our main config struct
+/// Our main config struct - what gets read from and written to disk
 pub struct Config {
     /// Path to our log file
     log: PathBuf,

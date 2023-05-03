@@ -21,6 +21,12 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
     /// NNCP configuration file
-    #[arg(short, long, value_name = "CONFIG_FILE")]
+    #[arg(short, long, value_name = "CONFIG_FILE", env="NNCP_RS_CONFIG")]
     pub config: Option<PathBuf>,
+    /// Path to our ongoing log file
+    #[arg(short, long, value_name="LOG_FILE", env="NNCP_RS_LOG_FILE")]
+    pub log: Option<PathBuf>,
+    /// Our node's spool directory, to store incoming and outgoing packets
+    #[arg(short, long, env="NNCP_RS_SPOOL_DIR")]
+    pub spool_directory: Option<PathBuf>,
 }
