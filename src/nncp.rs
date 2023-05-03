@@ -5,7 +5,7 @@ use anyhow::Error;
 use blake2::digest::Digest;
 use blake2::Blake2s256;
 use crypto_box::aead::OsRng;
-use crypto_box::PublicKey;
+
 use crypto_box::SecretKey;
 use ed25519_compact::KeyPair;
 use ed25519_compact::Seed;
@@ -36,8 +36,8 @@ impl LocalNNCPNode {
         };
         let node = LocalNNCPNode {
             exchprv: exch_sk,
-            signing_kp: signing_kp,
-            noise_kp: noise_kp,
+            signing_kp,
+            noise_kp,
         };
         Ok(node)
     }
@@ -60,7 +60,7 @@ impl LocalNNCPNode {
     /// Computed from hash of signing public key.
     pub fn id(&self) -> [u8; 32] {
         let mut hasher: Blake2s256 = Blake2s256::new();
-        hasher.update(&self.signing_kp.pk.as_ref());
+        hasher.update(self.signing_kp.pk.as_ref());
         let id: [u8; 32] = hasher.finalize().try_into().unwrap();
         id
     }
