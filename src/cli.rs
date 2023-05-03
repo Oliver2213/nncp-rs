@@ -1,18 +1,33 @@
 //! NNCP subcommands
-#![deny(missing_docs)]
 
+use crate::nncp::LocalNNCPNode;
 use base32::encode;
 use base32::Alphabet::RFC4648;
-use crate::nncp::LocalNNCPNode;
+use clap::Parser;
 use clap::Subcommand;
+use std::path::PathBuf;
+// use crate::cli;
+use crate::constants;
 
 #[derive(Subcommand)]
+#[deny(missing_docs)]
 /// all NNCP subcommands
 pub enum Commands {
     /// Generates a new node and prints it's base 32 encoded keys to stdout
-    GenerateNode
+    GenerateNode,
 }
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = &constants::LONG_ABOUT)]
+#[command(propagate_version = true)]
+/// Our command-line interface
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Commands,
+    /// NNCP configuration file
+    #[arg(short, long, value_name = "CONFIG_FILE")]
+    pub config: Option<PathBuf>,
+}
 
 /// Generate a local node and print its keys and ID to stdout
 pub fn generate_node() {
