@@ -3,7 +3,7 @@ use base32::Alphabet::RFC4648;
 use nncp_rs::nncp::LocalNNCPNode;
 
 /// Generate a local node and print its keys and ID to stdout
-pub fn generate_node(ctx: super::Context) {
+pub fn generate_node(_ctx: super::Context) {
     let node: LocalNNCPNode = LocalNNCPNode::generate();
     let b32_alph = RFC4648 { padding: false };
     let encoded_node_id = encode(b32_alph, &node.id());
