@@ -19,8 +19,7 @@ fn main() -> Result<(), Error> {
     if !cli.spool_directory.is_none() {
         ctx.spool_path = cli.spool_directory.unwrap();
     }
-    // Now load our config, creating a default if it doesn't exist
-    let config: cli::config::Config = confy::load_path(&ctx.config_path).context("Loading nncp configuration")?;
+    ctx.load_config()?;
     match &cli.command {
         cli::Commands::GenerateNode => cli::node::generate_node(ctx),
     }

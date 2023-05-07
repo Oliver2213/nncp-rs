@@ -7,12 +7,12 @@ use std::path::PathBuf;
 #[derive(Serialize, Deserialize)]
 /// Our main config struct - what gets read from and written to disk
 pub struct Config {
-    /// Our local node's config
-    localnode: LocalNodeConfig,
     /// Path to our log file
     log: PathBuf,
     /// Path to our local node's spool directory
     spool: PathBuf,
+    /// Our local node's config
+    localnode: LocalNodeConfig,
 }
 
 impl ::std::default::Default for Config {
