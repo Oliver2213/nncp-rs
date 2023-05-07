@@ -24,14 +24,14 @@ impl LocalNNCPNode {
     /// Typically done after you've generated one with generate-node or the go implementation.
     pub fn new(
         signing_kp_bytes: [u8; ed25519_compact::KeyPair::BYTES],
-        exch_kp_bytes: [u8; 32],
-        noise_prv_bytes: Vec<u8>,
+        exch_priv_bytes: [u8; 32],
+        noise_priv_bytes: Vec<u8>,
         noise_pub_bytes: Vec<u8>,
     ) -> Result<Self, Error> {
         let signing_kp = ed25519_compact::KeyPair::from_slice(&signing_kp_bytes)?;
-        let exch_sk = crypto_box::SecretKey::from(exch_kp_bytes);
+        let exch_sk = crypto_box::SecretKey::from(exch_priv_bytes);
         let noise_kp = snow::Keypair {
-            private: noise_prv_bytes,
+            private: noise_priv_bytes,
             public: noise_pub_bytes,
         };
         let node = LocalNNCPNode {

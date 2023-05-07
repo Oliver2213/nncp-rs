@@ -1,5 +1,4 @@
-use base32::encode;
-use base32::Alphabet::RFC4648;
+use base32::{encode, Alphabet::RFC4648};
 use nncp_rs::nncp::LocalNNCPNode;
 
 /// Generate a local node and print its keys and ID to stdout

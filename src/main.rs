@@ -3,7 +3,7 @@
 use clap::Parser;
 mod cli;
 use anyhow::Error;
-
+use anyhow::Context;
 
 fn main() -> Result<(), Error> {
     // Start with a default context and override it with any options passed in:
@@ -19,6 +19,8 @@ fn main() -> Result<(), Error> {
     if !cli.spool_directory.is_none() {
         ctx.spool_path = cli.spool_directory.unwrap();
     }
+    // Now load our config, creating a default if it doesn't exist
+    let config: cli::config::Config = confy::load_path(&ctx.config_path).context("Loading nncp configuration")?;
     match &cli.command {
         cli::Commands::GenerateNode => cli::node::generate_node(ctx),
     }
