@@ -11,6 +11,8 @@ use std::path::PathBuf;
 pub enum Commands {
     /// Generates a new node and prints it's base 32 encoded keys to stdout
     GenerateNode,
+    /// Prints your local node's ID
+    PrintLocalNode,
 }
 
 #[derive(Parser)]

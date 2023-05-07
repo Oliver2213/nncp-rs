@@ -3,9 +3,9 @@
 use clap::Parser;
 mod cli;
 use anyhow::Error;
-use anyhow::Context;
 
 fn main() -> Result<(), Error> {
+    env_logger::init();
     // Start with a default context and override it with any options passed in:
     let mut ctx = cli::Context::default();
     let cli = cli::Cli::parse();
@@ -22,6 +22,7 @@ fn main() -> Result<(), Error> {
     ctx.load_config()?;
     match &cli.command {
         cli::Commands::GenerateNode => cli::node::generate_node(ctx),
+        cli::Commands::PrintLocalNode => cli::node::PrintLocalNode(ctx),
     }
     Ok(())
 }

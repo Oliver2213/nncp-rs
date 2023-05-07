@@ -1,8 +1,9 @@
 use base32::{encode, Alphabet::RFC4648};
 use nncp_rs::nncp::LocalNNCPNode;
+use super::Context;
 
 /// Generate a local node and print its keys and ID to stdout
-pub fn generate_node(_ctx: super::Context) {
+pub fn generate_node(_ctx: Context) {
     let node: LocalNNCPNode = LocalNNCPNode::generate();
     let b32_alph = RFC4648 { padding: false };
     let encoded_node_id = encode(b32_alph, &node.id());
@@ -19,4 +20,14 @@ pub fn generate_node(_ctx: super::Context) {
     let encoded_noise_prv = encode(b32_alph, &node.noise_kp.private);
     println!("noisepub: {encoded_noise_pub}");
     println!("noiseprv: {encoded_noise_prv}");
+}
+
+pub fn PrintLocalNode (ctx: Context) {
+    match ctx.local_node {
+        Some(n) => {
+            println!("Your node ID: {}", n.id());
+        }
+        None => println!("No config is loaded; local node information is unknown."),
+    }
+    
 }

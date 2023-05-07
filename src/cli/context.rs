@@ -7,6 +7,7 @@ use base32::{decode, Alphabet::RFC4648};
 use nncp_rs::nncp::LocalNNCPNode;
 use std::path::Path;
 use std::path::PathBuf;
+use log::{debug, info, trace, warn, error};
 
 /// Related context for nncp operations: config, spool, node keys, oh my!
 /// Gets passed to every command function.
@@ -70,6 +71,8 @@ impl Context {
     /// Load the config from `config_path` and parse it, setting this context appropriately
     /// Returns any errors encountered in opening or parsing the config file.
     pub fn load_config(&mut self) -> Result<(), Error> {
+        debug!("Loading and parsing config");
+        debug!("Config path: {}", &self.config_path.display());
         let config: DiskConfig =
             confy::load_path(&self.config_path).context("couldn't load nncp configuration")?;
         let b32_alph = RFC4648 { padding: false };
@@ -77,15 +80,16 @@ impl Context {
         let signpub_b32 = decode(b32_alph, &config.localnode.signpub);
         let signpriv_b32 = decode(b32_alph, &config.localnode.signpriv);
         if signpub_b32.is_none() || signpriv_b32.is_none() {
+            error!("Failed to base32 decode signing public or private key.");
             return Err(anyhow!("Unable to parse signing keys as valid base32"));
         }
         let signpub_bytes: [u8;32] = match signpub_b32.unwrap().try_into() {
             Ok(pk) => pk,
-            Err(e) => return Err(anyhow!("Public signing key isn't 32 bytes long; error={e:?}")),
+            Err(e) => return Err(anyhow!("Public signing key isn't 32 bytes long!")),
         };
-        let signpriv_bytes: [u8;32] = match signpriv_b32.unwrap().try_into() {
+        let signpriv_bytes: [u8;64] = match signpriv_b32.unwrap().try_into() {
             Ok(sk) => sk,
-            Err(e) => return Err(anyhow!("Signing private key isn't 32 bytes long")),
+            Err(e) => return Err(anyhow!("Signing private key isn't 32 bytes long; error={e:?}")),
         };
         let exchpub_b32 = decode(b32_alph, &config.localnode.exchpub);
         let exchpriv_b32 = decode(b32_alph, &config.localnode.exchpriv);
@@ -110,8 +114,10 @@ impl Context {
             exchpriv_bytes,
             noisepriv_b32.unwrap(),
             noisepub_b32.unwrap(),
-        );
+        )?;
+        self.local_node = Some(local_node);
         self.config = Some(config);
+        debug!("Set up context");
         Ok(())
     }
 }
