@@ -1,3 +1,5 @@
+//! Tool config structs and stuff
+
 use base32::{encode, Alphabet::RFC4648};
 use nncp_rs::nncp::LocalNNCPNode;
 use serde::{Deserialize, Serialize};
@@ -6,22 +8,23 @@ use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize)]
 /// Our main config struct - what gets read from and written to disk
-pub struct Config {
+/// Bytes (E.G. node IDs, keys, etc are base32 encoded)
+pub struct DiskConfig {
     /// Path to our log file
-    log: PathBuf,
+    pub log: PathBuf,
     /// Path to our local node's spool directory
-    spool: PathBuf,
+    pub spool: PathBuf,
     /// Our local node's config
-    localnode: LocalNodeConfig,
+    pub localnode: LocalNodeDiskConfig,
 }
 
-impl ::std::default::Default for Config {
+impl ::std::default::Default for DiskConfig {
     /// Create a default configuration.
     /// Creates a node keypair and sets default paths for the log file and spool directory
     fn default() -> Self {
         let ctx = super::Context::default();
         let new_node = LocalNNCPNode::generate();
-        Config {
+        DiskConfig {
             localnode: new_node.into(),
             log: ctx.log_path,
             spool: ctx.spool_path,
@@ -31,22 +34,22 @@ impl ::std::default::Default for Config {
 
 /// Config representation of our local node.
 #[derive(Serialize, Deserialize)]
-pub struct LocalNodeConfig {
+pub struct LocalNodeDiskConfig {
     /// Exchange public key
-    exchpub: String,
+    pub exchpub: String,
     /// Exchange private key
-    exchpriv: String,
+    pub exchpriv: String,
     /// Public signing key
-    signpub: String,
+    pub signpub: String,
     /// Secret signing key
-    signpriv: String,
+    pub signpriv: String,
     /// Public noise protocol key
-    noisepub: String,
+    pub noisepub: String,
     /// Secret noise protocol key
-    noiseprv: String,
+    pub noiseprv: String,
 }
 
-impl From<LocalNNCPNode> for LocalNodeConfig {
+impl From<LocalNNCPNode> for LocalNodeDiskConfig {
     /// Converts a `LocalNNCPNode` to a serialized, base-32 encoded set of values in a node config
     fn from(node: LocalNNCPNode) -> Self {
         let b32_alph = RFC4648 { padding: false };
@@ -56,7 +59,7 @@ impl From<LocalNNCPNode> for LocalNodeConfig {
         let encoded_nacl_prv = encode(b32_alph, &node.exchprv.as_bytes().clone());
         let encoded_noise_pub = encode(b32_alph, &node.noise_kp.public);
         let encoded_noise_prv = encode(b32_alph, &node.noise_kp.private);
-        LocalNodeConfig {
+        LocalNodeDiskConfig {
             exchpub: encoded_nacl_pub,
             exchpriv: encoded_nacl_prv,
             signpub: encoded_ed_pub,

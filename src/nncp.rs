@@ -23,7 +23,7 @@ impl LocalNNCPNode {
     /// Create a local nncp node given it's secret keys. Useful when loading from a config file.
     /// Typically done after you've generated one with generate-node or the go implementation.
     pub fn new(
-        signing_kp_bytes: [u8; ed25519_compact::KeyPair::BYTES],
+        signing_kp_bytes: [u8; 32],
         exch_priv_bytes: [u8; 32],
         noise_priv_bytes: Vec<u8>,
         noise_pub_bytes: Vec<u8>,
