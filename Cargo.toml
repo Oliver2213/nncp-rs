@@ -1,6 +1,7 @@
 [package]
 name = "nncp-rs"
 version = "0.1.0"
+authors = ["Blake Oliver <oliver22213@me.com>"]
 edition = "2021"
 resolver = "2"
 description = "A rust port of the node to node copy set of tools"
