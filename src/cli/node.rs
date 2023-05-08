@@ -22,7 +22,7 @@ pub fn generate_node(_ctx: Context) {
     println!("noiseprv: {encoded_noise_prv}");
 }
 
-pub fn PrintLocalNode(ctx: Context, emojify: bool) {
+pub fn print_local_node(ctx: Context, emojify: bool) {
     match ctx.local_node {
         Some(n) => {
             let id = n.encoded_id();

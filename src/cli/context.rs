@@ -83,7 +83,7 @@ impl Context {
             error!("Failed to base32 decode signing public or private key.");
             return Err(anyhow!("Unable to parse signing keys as valid base32"));
         }
-        let signpub_bytes: [u8;32] = match signpub_b32.unwrap().try_into() {
+        let _signpub_bytes: [u8;32] = match signpub_b32.unwrap().try_into() {
             Ok(pk) => pk,
             Err(e) => return Err(anyhow!("Public signing key isn't 32 bytes long!")),
         };
@@ -99,7 +99,7 @@ impl Context {
             error!("Unable to parse exchange keys as base 32");
             return Err(anyhow!("Unable to parse exchange keys as base32"));
         }
-        let exchpub: [u8; 32] = match exchpub_b32.unwrap().try_into() {
+        let _exchpub: [u8; 32] = match exchpub_b32.unwrap().try_into() {
             Ok(b) => b,
             Err(e) => return Err(anyhow!("Exchange secret key was incorrect size")),
         };
