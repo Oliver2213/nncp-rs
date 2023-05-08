@@ -449,6 +449,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "emoji256"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61070f65aafb96c690b7c16a21503911a77de9ab6c72bad25748d6c73ba7b783"
+
+[[package]]
 name = "env_logger"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -623,6 +629,7 @@ dependencies = [
  "crypto_box",
  "directories 5.0.1",
  "ed25519-compact",
+ "emoji256",
  "env_logger",
  "log",
  "serde",

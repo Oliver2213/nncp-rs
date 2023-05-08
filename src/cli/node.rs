@@ -1,6 +1,6 @@
+use super::Context;
 use base32::{encode, Alphabet::RFC4648};
 use nncp_rs::nncp::LocalNNCPNode;
-use super::Context;
 
 /// Generate a local node and print its keys and ID to stdout
 pub fn generate_node(_ctx: Context) {
@@ -22,12 +22,16 @@ pub fn generate_node(_ctx: Context) {
     println!("noiseprv: {encoded_noise_prv}");
 }
 
-pub fn PrintLocalNode (ctx: Context) {
+pub fn PrintLocalNode(ctx: Context, emojify: bool) {
     match ctx.local_node {
         Some(n) => {
-            println!("Your node ID: {}", n.id());
+            let id = n.encoded_id();
+            println!("Your node ID: {}", &id);
+            if emojify {
+                let emoji_id = emoji256::encode(&id);
+                println!("Also known as {}", emoji_id);
+            }
         }
         None => println!("No config is loaded; local node information is unknown."),
     }
-    
 }

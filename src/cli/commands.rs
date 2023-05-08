@@ -9,10 +9,16 @@ use std::path::PathBuf;
 #[deny(missing_docs)]
 /// all NNCP subcommands
 pub enum Commands {
-    /// Generates a new node and prints it's base 32 encoded keys to stdout
+    /// Generates a node and prints it's base 32 encoded keys
+    #[command(name="gen-node")]
     GenerateNode,
     /// Prints your local node's ID
-    PrintLocalNode,
+    #[command(name="print-id")]
+    PrintLocalNode {
+        /// Include an emoji representation of the ID
+        #[arg(short, long, default_value_t=false)]
+        emojify: bool,
+    }
 }
 
 #[derive(Parser)]
@@ -23,6 +29,7 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
     /// NNCP configuration file
+    /// Defaults to a local os-specific directory
     #[arg(short, long, value_name = "CONFIG_FILE", env="NNCP_RS_CONFIG")]
     pub config: Option<PathBuf>,
     /// Path to our ongoing log file
