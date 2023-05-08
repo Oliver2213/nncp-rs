@@ -1,17 +1,18 @@
-/// a full NNCP node, likely our own
-
+//! nncp library, containing structures for a local node, remote node, etc
 use crate::constants;
 use anyhow::Error;
-use blake2::digest::Digest;
-use blake2::Blake2s256;
-use crypto_box::aead::OsRng;
 use base32::{encode, Alphabet::RFC4648};
-
+use blake2::Blake2bVar;
+//use blake2::digest::{Update, VariableOutput};
+use blake2::{Blake2b, Digest, digest::consts::U32};
+use crypto_box::aead::OsRng;
 use crypto_box::SecretKey;
 use ed25519_compact::KeyPair;
 use ed25519_compact::Seed;
 use snow::Builder;
 
+type Blake2b32 = Blake2b<U32>;
+/// a full NNCP node, likely our own
 pub struct LocalNNCPNode {
     /// exchange private key
     pub exchprv: crypto_box::SecretKey,
@@ -60,13 +61,17 @@ impl LocalNNCPNode {
     /// Returns this node's ID as bytes.
     /// Computed from hash of signing public key.
     pub fn id(&self) -> [u8; 32] {
-        let mut hasher: Blake2s256 = Blake2s256::new();
+        //let mut hasher = Blake2bVar::new(32).unwrap();
+        
+        let mut hasher = Blake2b32::new();
         hasher.update(self.signing_kp.pk.as_ref());
+        //let mut id = [0u8;32];
+        //hasher.finalize_variable(&mut id).unwrap();
         let id: [u8; 32] = hasher.finalize().try_into().unwrap();
         id
     }
 
-    pub fn encoded_id (&self) -> String {
+    pub fn encoded_id(&self) -> String {
         let b32_alph = RFC4648 { padding: false };
         encode(b32_alph, &self.id())
     }
