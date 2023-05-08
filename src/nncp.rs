@@ -1,10 +1,11 @@
 /// a full NNCP node, likely our own
+
 use crate::constants;
-// use blake2::Blake2s;
 use anyhow::Error;
 use blake2::digest::Digest;
 use blake2::Blake2s256;
 use crypto_box::aead::OsRng;
+use base32::{encode, Alphabet::RFC4648};
 
 use crypto_box::SecretKey;
 use ed25519_compact::KeyPair;
@@ -63,5 +64,10 @@ impl LocalNNCPNode {
         hasher.update(self.signing_kp.pk.as_ref());
         let id: [u8; 32] = hasher.finalize().try_into().unwrap();
         id
+    }
+
+    pub fn encoded_id (&self) -> String {
+        let b32_alph = RFC4648 { padding: false };
+        encode(b32_alph, &self.id())
     }
 }
