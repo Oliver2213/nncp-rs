@@ -29,7 +29,7 @@ impl ::std::default::Default for Context {
     /// Returns a default command context, using default, user-local directories.
     /// Paths for the config file, spool directory and log file are set.
     fn default() -> Self {
-        let config_path = confy::get_configuration_file_path("nncp-rs", None).unwrap();
+        let config_path = confy::get_configuration_file_path("nncp-rs", "nncp").unwrap();
         // Note: this structure (rs as tld, empty string as domain, app name as subdomain) is chosen to be the same as used by confy, which creates the path for the config - so they're all in the same place.
         let project_dir = directories::ProjectDirs::from("rs", "", "nncp")
             .expect("Unable to determine project directory");
@@ -69,9 +69,9 @@ impl Context {
     }
 
     /// Load the config from `config_path` and parse it, setting this context appropriately
-    /// Returns any errors encountered in opening or parsing the config file.
+    /// Returns any errors encountered in opening or parsing the config file or parsing node keys.
     pub fn load_config(&mut self) -> Result<(), Error> {
-        debug!("Loading and parsing config");
+        debug!("Loading config");
         debug!("Config path: {}", &self.config_path.display());
         let config: DiskConfig =
             confy::load_path(&self.config_path).context("couldn't load nncp configuration")?;
@@ -91,22 +91,28 @@ impl Context {
             Ok(sk) => sk,
             Err(e) => return Err(anyhow!("Signing private key isn't 32 bytes long; error={e:?}")),
         };
+        trace!("Parsed signing public and private keys into bytes");
         let exchpub_b32 = decode(b32_alph, &config.localnode.exchpub);
         let exchpriv_b32 = decode(b32_alph, &config.localnode.exchpriv);
+        trace!("Decoded exchange keys from base32");
         if exchpub_b32.is_none() || exchpriv_b32.is_none() {
+            error!("Unable to parse exchange keys as base 32");
             return Err(anyhow!("Unable to parse exchange keys as base32"));
         }
         let exchpub: [u8; 32] = match exchpub_b32.unwrap().try_into() {
             Ok(b) => b,
             Err(e) => return Err(anyhow!("Exchange secret key was incorrect size")),
         };
+        trace!("Parsed exchpub into bytes");
         let exchpriv_bytes: [u8; 32] = match exchpriv_b32.unwrap().try_into() {
             Ok(p) => p,
             Err(e) => return Err(anyhow!("exchange secret key was incorrect size")),
         };
+        trace!("Parsed exchpriv into bytes");
         let noisepub_b32 = decode(b32_alph, &config.localnode.noisepub);
         let noisepriv_b32 = decode(b32_alph, &config.localnode.noiseprv);
         if noisepub_b32.is_none() || noisepriv_b32.is_none() {
+            error!("Unable to parse noise protocol keys as base32");
             return Err(anyhow!("Unable to parse noise protocol keys as base32"));
         }
         let local_node = LocalNNCPNode::new(
@@ -116,6 +122,7 @@ impl Context {
             noisepub_b32.unwrap(),
         )?;
         self.local_node = Some(local_node);
+        trace!("Created and stored local node on context");
         self.config = Some(config);
         debug!("Set up context");
         Ok(())
