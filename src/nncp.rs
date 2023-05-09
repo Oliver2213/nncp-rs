@@ -22,14 +22,14 @@ pub struct LocalNNCPNode {
     pub noise_kp: snow::Keypair,
 }
 
-struct RemoteNNCPNode {
+pub struct RemoteNNCPNode {
     /// exchange public key
     pub exchpub: crypto_box::PublicKey,
     /// Signing public key
     pub signpub: ed25519_compact::PublicKey,
     /// Optional noise protocol public key, for synchronous online exchanges
     /// If we don't have this, packets from this node can only be delivered asynchronously; we don't know the noise key to use the internet for real-time communication.
-    noisepub: Option<Vec<u8>>,
+    pub noisepub: Option<Vec<u8>>,
 }
 
 impl LocalNNCPNode {
