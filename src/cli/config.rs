@@ -14,6 +14,8 @@ pub struct DiskConfig {
     pub log: PathBuf,
     /// Path to our local node's spool directory
     pub spool: PathBuf,
+    /// Our config format version, to deal with potential future changes in what we store in the config and how
+    pub format_version: u8,
     /// Our local node's config
     pub localnode: LocalNodeDiskConfig,
 }
@@ -28,6 +30,7 @@ impl ::std::default::Default for DiskConfig {
             localnode: new_node.into(),
             log: ctx.log_path,
             spool: ctx.spool_path,
+            format_version: 1,
         }
     }
 }
