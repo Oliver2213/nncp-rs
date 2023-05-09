@@ -2,6 +2,7 @@
 
 use base32::{encode, Alphabet::RFC4648};
 use nncp_rs::nncp::LocalNNCPNode;
+use nncp_rs::nncp::RemoteNNCPNode;
 use serde::{Deserialize, Serialize};
 use std::convert::From;
 use std::path::PathBuf;
@@ -52,6 +53,17 @@ pub struct LocalNodeDiskConfig {
     pub noiseprv: String,
 }
 
+/// An nncp node we can communicate with
+#[derive(Serialize, Deserialize)]
+pub struct RemoteNodeDiskConfig {
+    /// Public signing key
+    pub signpub: String,
+    /// Exchange public key
+    pub exchpub: String,
+    /// Public noise protocol key
+    pub noisepub: Option<String>,
+}
+
 impl From<LocalNNCPNode> for LocalNodeDiskConfig {
     /// Converts a `LocalNNCPNode` to a serialized, base-32 encoded set of values in a node config
     fn from(node: LocalNNCPNode) -> Self {
@@ -69,6 +81,24 @@ impl From<LocalNNCPNode> for LocalNodeDiskConfig {
             signpriv: encoded_ed_prv,
             noisepub: encoded_noise_pub,
             noiseprv: encoded_noise_prv,
+        }
+    }
+}
+
+impl From<RemoteNNCPNode> for RemoteNodeDiskConfig {
+    /// Converts a `RemoteNNCPNode` to it's disk / config format representation
+    fn from(node: RemoteNNCPNode) -> Self {
+        let b32_alph = RFC4648 { padding: false };
+        let encoded_signpub = encode(b32_alph, node.signpub.as_ref());
+        let encoded_exchpub = encode(b32_alph, &node.exchpub.as_bytes().clone());
+        let encoded_noisepub: Option<String> = match node.noisepub {
+            Some(np) => Some(encode(b32_alph, &np)),
+            None => None,
+        };
+        RemoteNodeDiskConfig {
+            signpub: encoded_signpub,
+            exchpub: encoded_exchpub,
+            noisepub: encoded_noisepub,
         }
     }
 }
