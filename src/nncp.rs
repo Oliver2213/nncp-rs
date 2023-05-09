@@ -1,10 +1,10 @@
 //! nncp library, containing structures for a local node, remote node, etc
 
 use crate::constants;
-use anyhow::{Error, Context};
+use anyhow::{Context, Error};
 use base32::{encode, Alphabet::RFC4648};
-use blake2::Blake2bVar;
-use blake2::{Blake2b, Digest, digest::consts::U32};
+
+use blake2::{digest::consts::U32, Blake2b, Digest};
 use crypto_box::aead::OsRng;
 use crypto_box::SecretKey;
 use ed25519_compact::KeyPair;
@@ -21,6 +21,17 @@ pub struct LocalNNCPNode {
     /// Noise protocol keypair, used for nncp sync protocol
     pub noise_kp: snow::Keypair,
 }
+
+struct RemoteNNCPNode {
+    /// exchange public key
+    pub exchpub: crypto_box::PublicKey,
+    /// Signing public key
+    pub signpub: ed25519_compact::PublicKey,
+    /// Optional noise protocol public key, for synchronous online exchanges
+    /// If we don't have this, packets from this node can only be delivered asynchronously; we don't know the noise key to use the internet for real-time communication.
+    noisepub: Option<Vec<u8>>,
+}
+
 impl LocalNNCPNode {
     /// Create a local nncp node given it's secret keys. Useful when loading from a config file.
     /// Typically done after you've generated one with generate-node or the go implementation.
@@ -61,9 +72,43 @@ impl LocalNNCPNode {
     /// Returns this node's ID as bytes.
     /// Computed from hash of signing public key.
     pub fn id(&self) -> [u8; 32] {
-        let mut hasher = Blake2b32Hasher::new(); 
+        let mut hasher = Blake2b32Hasher::new();
         hasher.update(self.signing_kp.pk.as_ref());
-        let id: [u8; 32] = hasher.finalize().try_into().expect("error converting node ID to 32 byte hash - has the output size of hashes changed?");
+        let id: [u8; 32] = hasher.finalize().try_into().expect(
+            "error converting node ID to 32 byte hash - has the output size of hashes changed?",
+        );
+        id
+    }
+
+    pub fn encoded_id(&self) -> String {
+        let b32_alph = RFC4648 { padding: false };
+        encode(b32_alph, &self.id())
+    }
+}
+
+impl RemoteNNCPNode {
+    pub fn new(
+        signpub_bytes: [u8; 32],
+        exchpub_bytes: [u8; 32],
+        noisepub_bytes: Option<Vec<u8>>,
+    ) -> Result<Self, Error> {
+        let signpub = ed25519_compact::PublicKey::from_slice(&signpub_bytes)?;
+        let exchpub = crypto_box::PublicKey::from(exchpub_bytes);
+        let noisepub = noisepub_bytes;
+        Ok(RemoteNNCPNode {
+            signpub,
+            exchpub,
+            noisepub,
+        })
+    }
+    /// Returns this node's ID as bytes.
+    /// Computed from hash of signing public key.
+    pub fn id(&self) -> [u8; 32] {
+        let mut hasher = Blake2b32Hasher::new();
+        hasher.update(self.signpub.as_ref());
+        let id: [u8; 32] = hasher.finalize().try_into().expect(
+            "error converting remote node ID to 32 byte hash - has the output size of hashes changed?",
+        );
         id
     }
 
