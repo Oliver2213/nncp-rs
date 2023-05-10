@@ -4,10 +4,10 @@ use super::config::DiskConfig;
 use anyhow::Context as anyhow_context;
 use anyhow::{anyhow, Error};
 use base32::{decode, Alphabet::RFC4648};
+use log::{debug, error, info, trace, warn};
 use nncp_rs::nncp::LocalNNCPNode;
 use std::path::Path;
 use std::path::PathBuf;
-use log::{debug, info, trace, warn, error};
 
 /// Related context for nncp operations: config, spool, node keys, oh my!
 /// Gets passed to every command function.
@@ -83,13 +83,17 @@ impl Context {
             error!("Failed to base32 decode signing public or private key.");
             return Err(anyhow!("Unable to parse signing keys as valid base32"));
         }
-        let _signpub_bytes: [u8;32] = match signpub_b32.unwrap().try_into() {
+        let _signpub_bytes: [u8; 32] = match signpub_b32.unwrap().try_into() {
             Ok(pk) => pk,
             Err(e) => return Err(anyhow!("Public signing key isn't 32 bytes long!")),
         };
-        let signpriv_bytes: [u8;64] = match signpriv_b32.unwrap().try_into() {
+        let signpriv_bytes: [u8; 64] = match signpriv_b32.unwrap().try_into() {
             Ok(sk) => sk,
-            Err(e) => return Err(anyhow!("Signing private key isn't 32 bytes long; error={e:?}")),
+            Err(e) => {
+                return Err(anyhow!(
+                    "Signing private key isn't 32 bytes long; error={e:?}"
+                ))
+            }
         };
         trace!("Parsed signing public and private keys into bytes");
         let exchpub_b32 = decode(b32_alph, &config.localnode.exchpub);
@@ -126,5 +130,12 @@ impl Context {
         self.config = Some(config);
         debug!("Set up context");
         Ok(())
+    }
+
+    /// Given a number of bytes, return if the disk our spool directory is mounted on has that much free space
+    pub fn enough_spool_space(&self, size: u64) -> Result<bool, Error> {
+        // Determine how much space is free on spool-holding-disk
+        let available = fs2::available_space(&self.spool_path)?;
+        return Ok(available <= size);
     }
 }
