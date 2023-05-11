@@ -136,6 +136,6 @@ impl Context {
     pub fn enough_spool_space(&self, size: u64) -> Result<bool, Error> {
         // Determine how much space is free on spool-holding-disk
         let available = fs2::available_space(&self.spool_path)?;
-        return Ok(available <= size);
+        Ok(available <= size)
     }
 }

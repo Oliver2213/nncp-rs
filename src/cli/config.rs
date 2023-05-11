@@ -91,10 +91,7 @@ impl From<RemoteNNCPNode> for RemoteNodeDiskConfig {
         let b32_alph = RFC4648 { padding: false };
         let encoded_signpub = encode(b32_alph, node.signpub.as_ref());
         let encoded_exchpub = encode(b32_alph, &node.exchpub.as_bytes().clone());
-        let encoded_noisepub: Option<String> = match node.noisepub {
-            Some(np) => Some(encode(b32_alph, &np)),
-            None => None,
-        };
+        let encoded_noisepub: Option<String> = node.noisepub.map(|np| encode(b32_alph, &np));
         RemoteNodeDiskConfig {
             signpub: encoded_signpub,
             exchpub: encoded_exchpub,
