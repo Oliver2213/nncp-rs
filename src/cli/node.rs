@@ -1,25 +1,33 @@
-use super::{Context, Cli};
-use std::fs::remove_file;
-use base32::{encode, Alphabet::RFC4648};
-use nncp_rs::nncp::LocalNNCPNode;
-use dialoguer::Confirm;
+use super::{Cli, Context};
 use anyhow::Error;
+use base32::{encode, Alphabet::RFC4648};
+use dialoguer::Confirm;
+use nncp_rs::nncp::LocalNNCPNode;
+use std::fs::remove_file;
+use log::debug;
 
 /// Generate a local node and psave it, printing its keys and ID to stdout
 pub fn generate_node(ctx: Context) -> Result<(), Error> {
     // So this command is nice and short: by the time it runs, a default config (including a local node) has been generated and saved, either in the default location, or specified by env var or command line option
-    // SO all we do is...
     let node: LocalNNCPNode;
-    if ctx.config_path.exists() && Confirm::new().with_prompt("You already have a configuration file with a node generated. Are you sure you want to delete it and create a new one?").interact()? {
-        remove_file(&ctx.config_path)?;
-        // Keep the same log, spool and config paths
-        let mut new_ctx = Context::new(ctx.config_path, ctx.log_path, ctx.spool_path);
-        new_ctx.load_config()?;
-        println!("New config and local node created!");
-        node = new_ctx.local_node.expect("No default node was created with config");
+    if ctx.config_existed {
+        debug!("Config exists; prompting user y/n regenerate");
+        if Confirm::new().with_prompt("You already have a configuration file generated. Are you sure you want to delete it and create a new one?").interact()? {
+            remove_file(&ctx.config_path)?;
+            println!("Deleted existing config");
+            // Keep the same log, spool and config paths, as they were set potentially from env vars or the commandline
+            let mut new_ctx = Context::new(ctx.config_path, ctx.log_path, ctx.spool_path);
+            new_ctx.load_config()?;
+            node = new_ctx.local_node.expect("No default node was created with config");
+            println!("Generated new config at {}", &new_ctx.config_path.display());
+        } else {
+            println!("Config recreation aborted.");
+            return Ok(());
+        }
     } else {
-        // No config file to overwrite; use the default we just made by virtue of getting to this point
-        node = ctx.local_node.expect("no default config was created that included a local node");
+        // No config existed before; we just wrote one by loading the context before getting here
+        node = ctx.local_node.expect("default config did not include a generated local node");
+        println!("Generated new config at {}", &ctx.config_path.display());
     }
     let b32_alph = RFC4648 { padding: false };
     let encoded_node_id = node.encoded_id();
