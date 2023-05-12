@@ -3,12 +3,14 @@
 use clap::Parser;
 mod cli;
 use anyhow::Error;
+use log::debug;
 
 fn main() -> Result<(), Error> {
     env_logger::init();
     // Start with a default context and override it with any options passed in:
     let mut ctx = cli::Context::default();
     let cli = cli::Cli::parse();
+    debug!("Parsed command-line arguments");
     if cli.config.is_some() {
         ctx.config_path = cli.config.unwrap();
     }
