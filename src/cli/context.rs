@@ -182,6 +182,7 @@ impl Context {
         // Ugh, right now this is going to be ugly. Later, abstract this decoding and converting to runtime struct into some method of each that just accepts the disk config versions or something
         let b32_alph = RFC4648 { padding: false };
         for (name, node) in &neighbors_config {
+            trace!("Parsing and storing neighbor-node '{}'", &name);
             let signpub_b32 = decode(b32_alph, &node.signpub);
             let exchpub_b32 = decode(b32_alph, &node.exchpub);
             let noisepub: Option<Vec<u8>>;
@@ -200,7 +201,7 @@ impl Context {
                 Err(_e) => {
                     error!("Incorrect signing key length for node '{}'", &name);
                     return Err(anyhow!("Public signing key isn't 32 bytes long!"));
-                },
+                }
             };
             if exchpub_b32.is_none() {
                 error!(
@@ -215,7 +216,10 @@ impl Context {
             let exchpub_bytes: [u8; 32] = match exchpub_b32.unwrap().try_into() {
                 Ok(b) => b,
                 Err(_e) => {
-                    error!("Incorrect exchange public key size for node '{}' (must be 32 bytes)", &name);
+                    error!(
+                        "Incorrect exchange public key size for node '{}' (must be 32 bytes)",
+                        &name
+                    );
                     return Err(anyhow!(
                         "The local node's exchange public key has incorrect size (must be 32 bytes)"
                     ));
