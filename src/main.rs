@@ -20,7 +20,7 @@ fn main() -> Result<(), Error> {
     }
     ctx.load_config()?;
     match &cli.command {
-        cli::Commands::GenerateNode => cli::node::generate_node(ctx),
+        cli::Commands::GenerateNode => cli::node::generate_node(ctx)?,
         cli::Commands::PrintLocalNode{emojify} => cli::node::print_local_node(ctx, *emojify),
         // ...
     }

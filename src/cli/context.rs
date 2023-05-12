@@ -60,7 +60,7 @@ impl ::std::default::Default for Context {
 
 impl Context {
     /// Create an empty context, specifying paths for the config, spool and log
-    fn new(
+    pub fn new(
         config_path: impl AsRef<Path>,
         log_path: impl AsRef<Path>,
         spool_path: impl AsRef<Path>,
