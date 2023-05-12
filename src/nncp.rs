@@ -11,7 +11,11 @@ use ed25519_compact::KeyPair;
 use ed25519_compact::Seed;
 use snow::Builder;
 
+/// A blake2b hasher with a compile-time output size of 32 bytes
 pub type Blake2b32Hasher = Blake2b<U32>;
+/// An NNCP node's ID, as bytes
+pub type NodeID = [u8; 32];
+
 /// a full NNCP node, likely our own
 pub struct LocalNNCPNode {
     /// exchange private key
@@ -71,7 +75,7 @@ impl LocalNNCPNode {
 
     /// Returns this node's ID as bytes.
     /// Computed from hash of signing public key.
-    pub fn id(&self) -> [u8; 32] {
+    pub fn id(&self) -> NodeID {
         let mut hasher = Blake2b32Hasher::new();
         hasher.update(self.signing_kp.pk.as_ref());
         let id: [u8; 32] = hasher.finalize().try_into().expect(
@@ -103,7 +107,7 @@ impl RemoteNNCPNode {
     }
     /// Returns this node's ID as bytes.
     /// Computed from hash of signing public key.
-    pub fn id(&self) -> [u8; 32] {
+    pub fn id(&self) -> NodeID {
         let mut hasher = Blake2b32Hasher::new();
         hasher.update(self.signpub.as_ref());
         let id: [u8; 32] = hasher.finalize().try_into().expect(

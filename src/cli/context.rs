@@ -1,6 +1,6 @@
 //! Context related to a command invocation
 
-use super::config::DiskConfig;
+use super::config::{DiskConfig, LocalNodeDiskConfig};
 use anyhow::Context as anyhow_context;
 use anyhow::{anyhow, Error};
 use base32::{decode, Alphabet::RFC4648};
@@ -75,10 +75,18 @@ impl Context {
         debug!("Config path: {}", &self.config_path.display());
         let config: DiskConfig =
             confy::load_path(&self.config_path).context("couldn't load nncp configuration")?;
+        self.set_local_node(&config.localnode);
+        trace!("Created and stored local node on context");
+        self.config = Some(config);
+        debug!("Set up context");
+        Ok(())
+    }
+
+    pub fn set_local_node(&mut self, node: &LocalNodeDiskConfig) -> Result<(), Error> {
         let b32_alph = RFC4648 { padding: false };
         // parse our node's keys into an instance we can use:
-        let signpub_b32 = decode(b32_alph, &config.localnode.signpub);
-        let signpriv_b32 = decode(b32_alph, &config.localnode.signpriv);
+        let signpub_b32 = decode(b32_alph, &node.signpub);
+        let signpriv_b32 = decode(b32_alph, &node.signpriv);
         if signpub_b32.is_none() || signpriv_b32.is_none() {
             error!("Failed to base32 decode signing public or private key.");
             return Err(anyhow!("Unable to parse signing keys as valid base32"));
@@ -96,8 +104,8 @@ impl Context {
             }
         };
         trace!("Parsed signing public and private keys into bytes");
-        let exchpub_b32 = decode(b32_alph, &config.localnode.exchpub);
-        let exchpriv_b32 = decode(b32_alph, &config.localnode.exchpriv);
+        let exchpub_b32 = decode(b32_alph, &node.exchpub);
+        let exchpriv_b32 = decode(b32_alph, &node.exchpriv);
         trace!("Decoded exchange keys from base32");
         if exchpub_b32.is_none() || exchpriv_b32.is_none() {
             error!("Unable to parse exchange keys as base 32");
@@ -113,25 +121,22 @@ impl Context {
             Err(e) => return Err(anyhow!("exchange secret key was incorrect size")),
         };
         trace!("Parsed exchpriv into bytes");
-        let noisepub_b32 = decode(b32_alph, &config.localnode.noisepub);
-        let noisepriv_b32 = decode(b32_alph, &config.localnode.noiseprv);
+        let noisepub_b32 = decode(b32_alph, &node.noisepub);
+        let noisepriv_b32 = decode(b32_alph, &node.noiseprv);
         if noisepub_b32.is_none() || noisepriv_b32.is_none() {
             error!("Unable to parse noise protocol keys as base32");
             return Err(anyhow!("Unable to parse noise protocol keys as base32"));
         }
-        let local_node = LocalNNCPNode::new(
+        let our_node = LocalNNCPNode::new(
             signpriv_bytes,
             exchpriv_bytes,
             noisepriv_b32.unwrap(),
             noisepub_b32.unwrap(),
         )?;
-        self.local_node = Some(local_node);
-        trace!("Created and stored local node on context");
-        self.config = Some(config);
-        debug!("Set up context");
+        self.local_node = Some(our_node);
         Ok(())
     }
-
+    
     /// Given a number of bytes, return if the disk our spool directory is mounted on has that much free space
     pub fn enough_spool_space(&self, size: u64) -> Result<bool, Error> {
         // Determine how much space is free on spool-holding-disk
