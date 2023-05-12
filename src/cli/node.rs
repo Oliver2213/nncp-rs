@@ -6,7 +6,7 @@ use nncp_rs::nncp::LocalNNCPNode;
 pub fn generate_node(_ctx: Context) {
     let node: LocalNNCPNode = LocalNNCPNode::generate();
     let b32_alph = RFC4648 { padding: false };
-    let encoded_node_id = encode(b32_alph, &node.id());
+    let encoded_node_id = node.encoded_id();
     println!("Node ID: {encoded_node_id}");
     let encoded_ed_pub = encode(b32_alph, node.signing_kp.pk.as_ref());
     let encoded_ed_prv = encode(b32_alph, node.signing_kp.sk.as_ref());
