@@ -20,6 +20,8 @@ pub struct Context {
     pub config: Option<DiskConfig>,
     /// Path to our configuration file
     pub config_path: PathBuf,
+    /// Did our config exist before we created the context
+    pub config_existed: bool,
     /// Path to our log file
     pub log_path: PathBuf,
     /// Path to our node's spool directory
@@ -48,6 +50,7 @@ impl ::std::default::Default for Context {
 
         Context {
             config: None,
+            config_existed: false,
             config_path,
             log_path,
             spool_path,
@@ -70,6 +73,7 @@ impl Context {
         let spool_path: PathBuf = spool_path.as_ref().to_path_buf();
         Context {
             config: None,
+            config_existed: false,
             config_path,
             log_path,
             spool_path,
@@ -84,6 +88,7 @@ impl Context {
     pub fn load_config(&mut self) -> Result<(), Error> {
         debug!("Loading config");
         debug!("Config path: {}", &self.config_path.display());
+        self.config_existed = self.config_path.exists();
         let config: DiskConfig =
             confy::load_path(&self.config_path).context("couldn't load nncp configuration")?;
         self.set_local_node(&config.localnode)?;
