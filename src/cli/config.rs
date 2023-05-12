@@ -6,6 +6,7 @@ use nncp_rs::nncp::RemoteNNCPNode;
 use serde::{Deserialize, Serialize};
 use std::convert::From;
 use std::path::PathBuf;
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize)]
 /// Our main config struct - what gets read from and written to disk
@@ -19,6 +20,7 @@ pub struct DiskConfig {
     pub format_version: u8,
     /// Our local node's config
     pub localnode: LocalNodeDiskConfig,
+    pub neigh: HashMap<String, RemoteNodeDiskConfig>,
 }
 
 impl ::std::default::Default for DiskConfig {
@@ -29,6 +31,7 @@ impl ::std::default::Default for DiskConfig {
         let new_node = LocalNNCPNode::generate();
         DiskConfig {
             localnode: new_node.into(),
+            neigh: HashMap::new()   ,
             log: ctx.log_path,
             spool: ctx.spool_path,
             format_version: 1,

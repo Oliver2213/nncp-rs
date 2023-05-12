@@ -5,9 +5,10 @@ use anyhow::Context as anyhow_context;
 use anyhow::{anyhow, Error};
 use base32::{decode, Alphabet::RFC4648};
 use log::{debug, error, info, trace, warn};
-use nncp_rs::nncp::LocalNNCPNode;
+use nncp_rs::nncp::{LocalNNCPNode, NodeID, RemoteNNCPNode};
 use std::path::Path;
 use std::path::PathBuf;
+use std::collections::HashMap;
 
 /// Related context for nncp operations: config, spool, node keys, oh my!
 /// Gets passed to every command function.
@@ -23,6 +24,8 @@ pub struct Context {
     pub spool_path: PathBuf,
     /// Our local node, ready to use
     pub local_node: Option<LocalNNCPNode>,
+    /// Hashmap of neighbor-nodes we know about, keyed by their ID
+    pub neighbors: HashMap<NodeID, RemoteNNCPNode>,
 }
 
 impl ::std::default::Default for Context {
@@ -45,6 +48,7 @@ impl ::std::default::Default for Context {
             log_path,
             spool_path,
             local_node: None,
+            neighbors: HashMap::new(),
         }
     }
 }
@@ -65,6 +69,7 @@ impl Context {
             log_path,
             spool_path,
             local_node: None,
+            neighbors: HashMap::new(),
         }
     }
 
@@ -142,5 +147,7 @@ impl Context {
         // Determine how much space is free on spool-holding-disk
         let available = fs2::available_space(&self.spool_path)?;
         Ok(available <= size)
+    
+    
     }
 }
