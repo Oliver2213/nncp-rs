@@ -30,6 +30,7 @@ log = "0.4.0"
 env_logger = "0.9.0"
 emoji256 = "0.2.2"
 fs2 = "0.4.3"
+dialoguer = "0.10.4"
 
 [build-dependencies]
 #build-info-build = "0.0.30"
