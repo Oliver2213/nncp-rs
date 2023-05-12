@@ -80,7 +80,7 @@ impl Context {
     }
 
     /// Load the config from `config_path` and parse it, setting this context appropriately
-    /// Returns any errors encountered in opening or parsing the config file or parsing node keys.
+    /// Returns any errors encountered in opening or parsing the config file or parsing node keys or neighbors
     pub fn load_config(&mut self) -> Result<(), Error> {
         debug!("Loading config");
         debug!("Config path: {}", &self.config_path.display());
@@ -88,6 +88,8 @@ impl Context {
             confy::load_path(&self.config_path).context("couldn't load nncp configuration")?;
         self.set_local_node(&config.localnode)?;
         trace!("Created and stored local node on context");
+        self.set_neighbors(&config.neigh)?;
+        
         self.config = Some(config);
         debug!("Set up context");
         Ok(())
@@ -174,14 +176,14 @@ impl Context {
 
     pub fn set_neighbors(
         &mut self,
-        neighbors_config: HashMap<String, RemoteNodeDiskConfig>,
+        neighbors_config: &HashMap<String, RemoteNodeDiskConfig>,
     ) -> Result<(), Error> {
         // for each (friendly name, remote node) in the map, parse the node's keys, create an instance and save it under context.neighbors[id]
         // also add an alias pointing from friendly name to ID once added.
         // Later: via parsing, making sure that if a neighbor says it routes via another, we have those nodes information
         // Ugh, right now this is going to be ugly. Later, abstract this decoding and converting to runtime struct into some method of each that just accepts the disk config versions or something
         let b32_alph = RFC4648 { padding: false };
-        for (name, node) in &neighbors_config {
+        for (name, node) in neighbors_config {
             trace!("Parsing and storing neighbor-node '{}'", &name);
             let signpub_b32 = decode(b32_alph, &node.signpub);
             let exchpub_b32 = decode(b32_alph, &node.exchpub);
@@ -257,7 +259,7 @@ impl Context {
             // Finally! We have all the keys we're going to get this loop for this node; create it and store under the name key on context.
             let neighbor = RemoteNNCPNode::new(signpub_bytes, exchpub_bytes, noisepub)?;
             let id = neighbor.id();
-            self.neighbors.insert(id.clone(), neighbor);
+            self.neighbors.insert(id, neighbor);
             self.neighbor_aliases.insert(name.to_string(), id);
         }
         Ok(())
