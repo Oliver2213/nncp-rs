@@ -2,9 +2,11 @@ use super::Context;
 use base32::{encode, Alphabet::RFC4648};
 use nncp_rs::nncp::LocalNNCPNode;
 
-/// Generate a local node and print its keys and ID to stdout
-pub fn generate_node(_ctx: Context) {
-    let node: LocalNNCPNode = LocalNNCPNode::generate();
+/// Generate a local node and psave it, printing its keys and ID to stdout
+pub fn generate_node(ctx: Context) {
+    // So this command is nice and short: by the time it runs, a default config (including a local node) has been generated and saved, either in the default location, or specified by env var or command line option
+    // SO all we do is...
+    let node = ctx.local_node.expect("no default config was created that included a local node");
     let b32_alph = RFC4648 { padding: false };
     let encoded_node_id = node.encoded_id();
     println!("Node ID: {encoded_node_id}");
