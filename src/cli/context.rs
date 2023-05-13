@@ -47,17 +47,7 @@ impl ::std::default::Default for Context {
         spool_path.push("spool");
         let mut log_path = PathBuf::from(data_path);
         log_path.push("nncp.log");
-
-        Context {
-            config: None,
-            config_existed: false,
-            config_path,
-            log_path,
-            spool_path,
-            local_node: None,
-            neighbors: HashMap::new(),
-            neighbor_aliases: HashMap::new(),
-        }
+        Context::new(config_path, log_path, spool_path)
     }
 }
 
