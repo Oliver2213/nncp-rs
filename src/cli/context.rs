@@ -170,6 +170,23 @@ impl Context {
         Ok(available <= size)
     }
 
+    /// Given a friendly name and a remote node, add it as a known neighbor, mapping it's friendly name to ID for lookup
+    /// Return whether we replaced an existing node with the same friendly name
+    pub fn add_neighbor(&mut self, name: &String, neighbor: RemoteNNCPNode) -> bool {
+        let mut replaced = false;
+        let id = neighbor.id();
+        self.neighbors.insert(id, neighbor);
+        // Warn if we somehow replace an existing node keyed by the same friendly name
+        match self.neighbor_aliases.insert(name.to_string(), id) {
+            Some(old_id) => {
+                warn!("Replacing neighbor node '{name}': was ID '{old_id:?}");
+                replaced = true;
+            },
+            None => (),
+        }
+        replaced
+    }
+
     pub fn set_neighbors(
         &mut self,
         neighbors_config: &HashMap<String, RemoteNodeDiskConfig>,
@@ -177,86 +194,12 @@ impl Context {
         // for each (friendly name, remote node) in the map, parse the node's keys, create an instance and save it under context.neighbors[id]
         // also add an alias pointing from friendly name to ID once added.
         // Later: via parsing, making sure that if a neighbor says it routes via another, we have those nodes information
-        // Ugh, right now this is going to be ugly. Later, abstract this decoding and converting to runtime struct into some method of each that just accepts the disk config versions or something
         let b32_alph = RFC4648 { padding: false };
         for (name, node) in neighbors_config {
             trace!("Parsing and storing neighbor-node '{}'", &name);
-            let signpub_b32 = decode(b32_alph, &node.signpub);
-            let exchpub_b32 = decode(b32_alph, &node.exchpub);
-            let noisepub: Option<Vec<u8>>;
-            if signpub_b32.is_none() {
-                error!(
-                    "Failed to base32 decode signing public key for node '{}'",
-                    &name
-                );
-                return Err(anyhow!(
-                    "Unable to parse signing key for node '{}' as valid base32",
-                    &name
-                ));
-            }
-            let signpub_bytes: [u8; 32] = match signpub_b32.unwrap().try_into() {
-                Ok(pk) => pk,
-                Err(_e) => {
-                    error!("Incorrect signing key length for node '{}'", &name);
-                    return Err(anyhow!("Public signing key isn't 32 bytes long!"));
-                }
-            };
-            if exchpub_b32.is_none() {
-                error!(
-                    "Failed to base32 decode exchange public key for node '{}'",
-                    &name
-                );
-                return Err(anyhow!(
-                    "Unable to parse exchange key for node '{}' as valid base32",
-                    &name
-                ));
-            }
-            let exchpub_bytes: [u8; 32] = match exchpub_b32.unwrap().try_into() {
-                Ok(b) => b,
-                Err(_e) => {
-                    error!(
-                        "Incorrect exchange public key size for node '{}' (must be 32 bytes)",
-                        &name
-                    );
-                    return Err(anyhow!(
-                        "node '{}' has exchange public key of incorrect size (must be 32 bytes)",
-                        &name
-                    ));
-                }
-            };
-            match &node.noisepub {
-                Some(np_key) => {
-                    // This remote node has a noise protocol public key; we can do online exchange with it
-                    let noisepub_b32 = decode(b32_alph, np_key);
-                    if noisepub_b32.is_none() {
-                        error!(
-                            "Unable to parse noise protocol public key as base32 for node '{}'",
-                            &name
-                        );
-                        return Err(anyhow!(
-                            "Unable to parse noise protocol public key as base32 for node '{}'",
-                            &name
-                        ));
-                    }
-                    let np = noisepub_b32.unwrap();
-                    if np.len() != 32 {
-                        error!("Noise public key for node '{}' isn't 32 bytes", &name);
-                        return Err(anyhow!(
-                            "noise public key for node '{}' isn't 32 bytes",
-                            &name
-                        ));
-                    }
-                    noisepub = Some(np);
-                }
-                None => {
-                    noisepub = None;
-                }
-            }
-            // Finally! We have all the keys we're going to get this loop for this node; create it and store under the name key on context.
-            let neighbor = RemoteNNCPNode::new(signpub_bytes, exchpub_bytes, noisepub)?;
-            let id = neighbor.id();
-            self.neighbors.insert(id, neighbor);
-            self.neighbor_aliases.insert(name.to_string(), id);
+            let neighbor = Context::parse_remote_node(node)
+                .context(format!("Parsing neighbor-node '{}'", &name))?;
+            self.add_neighbor(name, neighbor);
         }
         Ok(())
     }
