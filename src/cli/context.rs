@@ -187,19 +187,19 @@ impl Context {
         replaced
     }
 
+    /// Load all known neighbor nodes from config, parsing each into a `RemoteNNCPNode` and adding them to this context, keyed by id and friendly name
     pub fn set_neighbors(
         &mut self,
         neighbors_config: &HashMap<String, RemoteNodeDiskConfig>,
     ) -> Result<(), Error> {
         // for each (friendly name, remote node) in the map, parse the node's keys, create an instance and save it under context.neighbors[id]
-        // also add an alias pointing from friendly name to ID once added.
         // Later: via parsing, making sure that if a neighbor says it routes via another, we have those nodes information
-        let b32_alph = RFC4648 { padding: false };
         for (name, node) in neighbors_config {
-            trace!("Parsing and storing neighbor-node '{}'", &name);
+            trace!("Parsing neighbor-node '{}'", &name);
             let neighbor = Context::parse_remote_node(node)
                 .context(format!("Parsing neighbor-node '{}'", &name))?;
             self.add_neighbor(name, neighbor);
+            trace!("Node added to context");
         }
         Ok(())
     }
