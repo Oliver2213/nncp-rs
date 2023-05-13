@@ -84,7 +84,7 @@ impl Context {
         self.set_local_node(&config.localnode)?;
         trace!("Created and stored local node on context");
         self.set_neighbors(&config.neigh)?;
-        
+
         self.config = Some(config);
         debug!("Set up context");
         Ok(())
@@ -218,7 +218,8 @@ impl Context {
                         &name
                     );
                     return Err(anyhow!(
-                        "The local node's exchange public key has incorrect size (must be 32 bytes)"
+                        "node '{}' has exchange public key of incorrect size (must be 32 bytes)",
+                        &name
                     ));
                 }
             };
@@ -228,17 +229,17 @@ impl Context {
                     let noisepub_b32 = decode(b32_alph, np_key);
                     if noisepub_b32.is_none() {
                         error!(
-                            "Unable to parse noise protocol keys as base32 for node '{}'",
+                            "Unable to parse noise protocol public key as base32 for node '{}'",
                             &name
                         );
                         return Err(anyhow!(
-                            "Unable to parse noise protocol keys as base32 for node '{}'",
+                            "Unable to parse noise protocol public key as base32 for node '{}'",
                             &name
                         ));
                     }
                     let np = noisepub_b32.unwrap();
                     if np.len() != 32 {
-                        error!("Noise public key isn't 32 bytes");
+                        error!("Noise public key for node '{}' isn't 32 bytes", &name);
                         return Err(anyhow!(
                             "noise public key for node '{}' isn't 32 bytes",
                             &name
@@ -250,7 +251,6 @@ impl Context {
                     noisepub = None;
                 }
             }
-            //println!("{:?}", &noisepub);
             // Finally! We have all the keys we're going to get this loop for this node; create it and store under the name key on context.
             let neighbor = RemoteNNCPNode::new(signpub_bytes, exchpub_bytes, noisepub)?;
             let id = neighbor.id();
