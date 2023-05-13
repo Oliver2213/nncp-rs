@@ -8,6 +8,7 @@ use anyhow::{anyhow, Error};
 use base32::{decode, Alphabet::RFC4648};
 use log::{debug, error, info, trace, warn};
 use nncp_rs::nncp::{LocalNNCPNode, NodeID, RemoteNNCPNode};
+use nncp_rs::NNCPError;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
@@ -258,5 +259,56 @@ impl Context {
             self.neighbor_aliases.insert(name.to_string(), id);
         }
         Ok(())
+    }
+
+    pub fn parse_remote_node(node: &RemoteNodeDiskConfig) -> Result<RemoteNNCPNode, Error> {
+        // Ugh, right now this is going to be ugly. Later, abstract this decoding and converting to runtime struct into some method of each that just accepts the disk config versions or something
+        let b32_alph = RFC4648 { padding: false };
+        let signpub_b32 = decode(b32_alph, &node.signpub);
+        let exchpub_b32 = decode(b32_alph, &node.exchpub);
+        let noisepub: Option<Vec<u8>>;
+        if signpub_b32.is_none() {
+            error!("Failed to base32 decode signing public key for node");
+            return Err(anyhow!(NNCPError::Base32DecodeError));
+        }
+        let signpub_bytes: [u8; 32] = match signpub_b32.unwrap().try_into() {
+            Ok(pk) => pk,
+            Err(_e) => {
+                error!("Incorrect signing key length for node");
+                return Err(anyhow!(NNCPError::KeyLengthError { expected_len: 32 }));
+            }
+        };
+        if exchpub_b32.is_none() {
+            error!("Failed to base32 decode exchange public key for node");
+            return Err(anyhow!(NNCPError::Base32DecodeError));
+        }
+        let exchpub_bytes: [u8; 32] = match exchpub_b32.unwrap().try_into() {
+            Ok(b) => b,
+            Err(_e) => {
+                error!("Incorrect exchange public key size for node (must be 32 bytes)",);
+                return Err(anyhow!(NNCPError::KeyLengthError { expected_len: 32 }));
+            }
+        };
+        match &node.noisepub {
+            Some(np_key) => {
+                // This remote node has a noise protocol public key; we can do online exchange with it
+                let noisepub_b32 = decode(b32_alph, np_key);
+                if noisepub_b32.is_none() {
+                    error!("Unable to parse noise protocol public key as base32 for node",);
+                    return Err(anyhow!(NNCPError::Base32DecodeError));
+                }
+                let np = noisepub_b32.unwrap();
+                if np.len() != 32 {
+                    error!("Noise public key for node isn't 32 bytes");
+                    return Err(anyhow!(NNCPError::KeyLengthError { expected_len: 32 }));
+                }
+                noisepub = Some(np);
+            }
+            None => {
+                noisepub = None;
+            }
+        }
+        let neighbor = RemoteNNCPNode::new(signpub_bytes, exchpub_bytes, noisepub)?;
+        Ok(neighbor)
     }
 }

@@ -2,9 +2,9 @@
 
 #[derive(thiserror::Error, Debug, Clone)]
 /// NNCP errors: parsing, key length and more
-pub enum Error {
-    #[error("Unable to parse {friendly_label} as base32")]
-    Base32DecodeError {friendly_label: String},
-    #[error("Incorrect key length for {friendly_label} - expected {expected_len}")]
-    KeyLengthError{expected_len: usize, friendly_label: String},
+pub enum NNCPError {
+    #[error("Unable to parse as base32")]
+    Base32DecodeError ,
+    #[error("Incorrect key length - expected {expected_len}")]
+    KeyLengthError{expected_len: usize},
 }
