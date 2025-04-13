@@ -11,10 +11,10 @@ This is a very early port of [nncp](http://nncpgo.org) in rust.
   * Freq packets
   * Transit packets
   * Acknowledgment packets
+* Merkle Tree Hash implementation using BLAKE3
 
 ## What doesn't work
 * Packet encryption and signatures
-* Hashing files using blake3 and the custom merkle tree node and leaf-keyed algorithm - I.E. getting a merkle hash, being able to verify a received file
 * disk-based send / receive - I.E. nncp-xfer, nncp-bundle
 * online protocol and live transfers - I.E. nncp-call, nncp-caller, nncp-daemon
 * sending files, exec requests, receiving things...

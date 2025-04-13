@@ -14,3 +14,7 @@ serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 rand = "0.8.5"
+
+[[example]]
+name = "merkle_hash"
+path = "examples/merkle_hash.rs"
