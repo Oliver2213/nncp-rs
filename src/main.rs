@@ -5,6 +5,9 @@ mod cli;
 use anyhow::Error;
 use log::debug;
 
+// Re-export the packet crate for use in other modules
+pub use nncp_packet;
+
 fn main() -> Result<(), Error> {
     env_logger::init();
     // Start with a default context and override it with any options passed in:
