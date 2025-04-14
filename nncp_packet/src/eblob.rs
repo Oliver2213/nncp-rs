@@ -3,15 +3,15 @@
 //! This module provides functionality for creating and decrypting encrypted blobs
 //! using the Balloon hashing algorithm for key derivation.
 
-use blake3::{Hasher, Hash};
-use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
-use chacha20poly1305::aead::{Aead, NewAead};
+use blake3::Hasher;
+use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce, KeyInit};
+use chacha20poly1305::aead::Aead;
 use rand::RngCore;
 use serde::{Serialize, Deserialize};
-use std::io::{self, Read};
+use std::io;
 use thiserror::Error;
 
-use crate::magic::{Magic, NNCP_B_V3};
+use crate::magic::NNCP_B_V3;
 
 /// Default space cost for Balloon hashing (memory usage)
 pub const DEFAULT_S: u32 = 1 << 20 / 32;
