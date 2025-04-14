@@ -13,15 +13,17 @@ This document outlines the plan for implementing the NNCP (Node to Node Copy Pro
 - ✅ Trns packet implementation
 - ✅ ACK packet implementation
 - ✅ Basic tests
+- ✅ Merkle Tree Hash (MTH) implementation
 
-## Upcoming Features
+## Encryption Layer
 
-### Packet Encryption
-
-- [ ] Implement encrypted packet structure
-- [ ] Add encryption/decryption functionality
+- ✅ EBlob implementation with Balloon hashing
+- ✅ Encrypted packet structure
+- ✅ Encryption/decryption functionality
 - [ ] Support for node identity and key management
 - [ ] Signature verification
+
+## Upcoming Features
 
 ### Command Line Tools
 

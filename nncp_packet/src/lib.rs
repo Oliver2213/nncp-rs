@@ -14,6 +14,7 @@ mod ack;
 mod constants;
 mod mth;
 mod eblob;
+mod encrypted;
 
 pub use magic::Magic;
 pub use packet::{Packet, PacketType};
@@ -26,6 +27,7 @@ pub use ack::AckPacket;
 pub use constants::*;
 pub use mth::MTH;
 pub use eblob::{EBlob, EBlobError, DEFAULT_S, DEFAULT_T, DEFAULT_P};
+pub use encrypted::EncryptedPacket;
 
 // Re-export the PacketContent trait directly
 pub use packet::PacketContent;

@@ -51,4 +51,16 @@ pub enum Error {
     /// Invalid signature
     #[error("Invalid signature")]
     InvalidSignature,
+    
+    /// Serialization error
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+    
+    /// Encryption error
+    #[error("Encryption error: {0}")]
+    Encryption(String),
+    
+    /// Decryption error
+    #[error("Decryption error: {0}")]
+    Decryption(String),
 }

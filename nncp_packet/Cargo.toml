@@ -27,3 +27,7 @@ path = "examples/merkle_hash.rs"
 [[example]]
 name = "eblob_example"
 path = "examples/eblob_example.rs"
+
+[[example]]
+name = "encrypted_packet_example"
+path = "examples/encrypted_packet_example.rs"
