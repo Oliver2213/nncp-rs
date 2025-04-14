@@ -1,41 +1,41 @@
-//! Freq packet implementation for NNCP
+//! File packet implementation for NNCP
 //!
-//! This module provides the freq packet type, which is used for file requests.
+//! This module provides the file packet type, which is used for transferring files.
 
-use crate::{
+use crate::packet::{
     Error,
     Packet,
     PacketType,
-    packet::PacketContent,
+    PacketContent,
 };
 
-/// Freq packet for NNCP
+/// File packet for NNCP
 #[derive(Debug, Clone)]
-pub struct FreqPacket {
-    /// Path to the requested file
+pub struct FilePacket {
+    /// Path to the file
     pub path: String,
 }
 
-impl FreqPacket {
-    /// Create a new freq packet with the given path
+impl FilePacket {
+    /// Create a new file packet with the given path
     pub fn new(path: &str) -> Result<Self, Error> {
         Ok(Self {
             path: path.to_string(),
         })
     }
     
-    /// Encode the freq packet with the given niceness level
+    /// Encode the file packet with the given niceness level
     pub fn encode<W: std::io::Write>(&self, writer: &mut W, nice: u8) -> Result<usize, Error> {
         let packet = self.to_packet(nice)?;
         Ok(packet.encode(writer)?)
     }
     
-    /// Decode a freq packet from a reader
+    /// Decode a file packet from a reader
     pub fn decode<R: std::io::Read>(reader: &mut R) -> Result<(Self, u8), Error> {
         let packet = Packet::decode(reader)?;
-        if packet.packet_type != PacketType::Freq {
+        if packet.packet_type != PacketType::File {
             return Err(Error::InvalidPacketType {
-                expected: PacketType::Freq,
+                expected: PacketType::File,
                 actual: packet.packet_type,
             });
         }
@@ -44,11 +44,11 @@ impl FreqPacket {
     }
 }
 
-impl PacketContent for FreqPacket {
+impl PacketContent for FilePacket {
     fn from_packet(packet: &Packet) -> Result<Self, Error> {
-        if packet.packet_type != PacketType::Freq {
+        if packet.packet_type != PacketType::File {
             return Err(Error::InvalidPacketType {
-                expected: PacketType::Freq,
+                expected: PacketType::File,
                 actual: packet.packet_type,
             });
         }
@@ -62,7 +62,7 @@ impl PacketContent for FreqPacket {
     
     fn to_packet(&self, nice: u8) -> Result<Packet, Error> {
         Packet::new(
-            PacketType::Freq,
+            PacketType::File,
             nice,
             self.path.as_bytes(),
         )
@@ -75,15 +75,15 @@ mod tests {
     use std::io::Cursor;
     
     #[test]
-    fn test_freq_packet_roundtrip() {
-        let path = "/path/to/requested/file.txt";
-        let freq_packet = FreqPacket::new(path).unwrap();
+    fn test_file_packet_roundtrip() {
+        let path = "/path/to/file.txt";
+        let file_packet = FilePacket::new(path).unwrap();
         
         let mut buffer = Vec::new();
-        freq_packet.encode(&mut buffer, 10).unwrap();
+        file_packet.encode(&mut buffer, 10).unwrap();
         
         let mut cursor = Cursor::new(buffer);
-        let (decoded, nice) = FreqPacket::decode(&mut cursor).unwrap();
+        let (decoded, nice) = FilePacket::decode(&mut cursor).unwrap();
         
         assert_eq!(decoded.path, path);
         assert_eq!(nice, 10);

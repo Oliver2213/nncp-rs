@@ -2,11 +2,11 @@
 //!
 //! This module provides the acknowledgment packet type.
 
-use crate::{
+use crate::packet::{
     Error,
     Packet,
     PacketType,
-    packet::PacketContent,
+    PacketContent,
 };
 
 /// Acknowledgment packet for NNCP

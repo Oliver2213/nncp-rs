@@ -2,11 +2,11 @@
 //!
 //! This module provides the transit packet type, which is used for forwarding packets.
 
-use crate::{
+use crate::packet::{
     Error,
     Packet,
     PacketType,
-    packet::PacketContent,
+    PacketContent,
 };
 
 /// Transit packet for NNCP

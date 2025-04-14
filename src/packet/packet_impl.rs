@@ -6,7 +6,7 @@ use std::io::{self, Read, Write};
 use bytes::{BufMut, BytesMut};
 
 use crate::magic::NNCP_P_V3;
-use crate::Error;
+use crate::packet::Error;
 use crate::constants::MAX_PATH_SIZE;
 
 /// Type of NNCP packet

@@ -2,11 +2,11 @@
 //!
 //! This module provides the exec packet types, which are used for executing commands.
 
-use crate::{
+use crate::packet::{
     Error,
     Packet,
     PacketType,
-    packet::PacketContent,
+    PacketContent,
 };
 
 /// Exec packet for NNCP

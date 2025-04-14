@@ -8,11 +8,6 @@ description = "A rust port of the node to node copy set of tools"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[workspace]
-members = [
-    "nncp_packet",
-]
-
 [[bin]]
 name = "nncp"
 path = "src/main.rs"
@@ -23,6 +18,12 @@ snow = "0.9"
 base32 = "0.3"
 crypto_box = "0.8.2"
 blake2 = "0.10.6"
+blake3 = "1.3"
+bytes = "1.4"
+balloon-hash = "0.3"
+chacha20poly1305 = "0.10"
+rand = "0.8"
+bincode = "1.3"
 #build-info = {version = "0.0.30", features =["runtime"]}
 clap = { version = "4.2.5", features = ["cargo", "env", "derive"] }
 anyhow = "1.0"
@@ -37,7 +38,6 @@ emoji256 = "0.2.2"
 fs2 = "0.4.3"
 dialoguer = "0.10.4"
 serde-xdr = "0.6.0"
-nncp_packet = { path = "./nncp_packet" }
 
 [build-dependencies]
 #build-info-build = "0.0.30"
