@@ -175,7 +175,7 @@ fn balloon_hash(password: &[u8], salt: &[u8], s: u32, t: u32, p: u32) -> [u8; 32
     let params = Params::new(s, t, p).unwrap();
     
     // Create Balloon hasher with Blake2b
-    let balloon = Balloon::<Blake2b512>::new(Algorithm::Balloon, params, None);
+    let balloon = Balloon::<Blake2b512>::new(Algorithm::BalloonM, params, None);
     
     // Hash the password
     let hash_result = balloon.hash(password, salt).unwrap();

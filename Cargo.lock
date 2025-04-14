@@ -801,6 +801,7 @@ version = "0.1.0"
 dependencies = [
  "balloon-hash",
  "bincode",
+ "blake2",
  "blake3",
  "bytes",
  "chacha20poly1305",
