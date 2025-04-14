@@ -3,7 +3,8 @@
 //! This module provides functionality for creating and decrypting encrypted blobs
 //! using the Balloon hashing algorithm for key derivation.
 
-use blake3::Hasher;
+use balloon_hash::{Balloon, Algorithm, Params};
+use blake2::Blake2b512;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce, KeyInit};
 use chacha20poly1305::aead::Aead;
 use rand::RngCore;
@@ -96,7 +97,7 @@ impl EBlob {
         };
         
         // Serialize the EBlob header for use as associated data
-        let header_bytes = bincode::serialize(&eblob)
+        let _header_bytes = bincode::serialize(&eblob)
             .map_err(|e| EBlobError::Serialization(e.to_string()))?;
         
         // Derive encryption key using Balloon hashing
@@ -137,7 +138,7 @@ impl EBlob {
         header_eblob.blob = Vec::new();
         
         // Serialize the header for use as associated data
-        let header_bytes = bincode::serialize(&header_eblob)
+        let _header_bytes = bincode::serialize(&header_eblob)
             .map_err(|e| EBlobError::Serialization(e.to_string()))?;
         
         // Derive decryption key using Balloon hashing
@@ -166,29 +167,24 @@ impl Clone for EBlob {
     }
 }
 
-/// Implementation of the Balloon hashing algorithm
-///
-/// This is a simplified implementation based on the Go code.
-/// For a full implementation, consider using a dedicated crate.
+/// Implementation of the Balloon hashing algorithm using the balloon-hash crate
+/// 
+/// This follows the Go implementation which uses Blake2b as the hash function.
 fn balloon_hash(password: &[u8], salt: &[u8], s: u32, t: u32, p: u32) -> [u8; 32] {
-    // For now, we'll use a simplified approach with BLAKE3
-    // In a real implementation, you would want to use the full Balloon algorithm
-    let mut hasher = Hasher::new();
-    hasher.update(password);
-    hasher.update(salt);
+    // Create parameters for Balloon hashing
+    let params = Params::new(s, t, p).unwrap();
     
-    // Add the parameters to the hash
-    hasher.update(&s.to_le_bytes());
-    hasher.update(&t.to_le_bytes());
-    hasher.update(&p.to_le_bytes());
+    // Create Balloon hasher with Blake2b
+    let balloon = Balloon::<Blake2b512>::new(Algorithm::Balloon, params, None);
     
-    // Get the hash result
-    let hash = hasher.finalize();
+    // Hash the password
+    let hash_result = balloon.hash(password, salt).unwrap();
     
-    // Convert the Hash to a 32-byte array
-    let mut result = [0u8; 32];
-    result.copy_from_slice(hash.as_bytes());
-    result
+    // Convert the GenericArray to a fixed-size array
+    let mut output = [0u8; 32];
+    output.copy_from_slice(&hash_result[..32]);
+    
+    output
 }
 
 #[cfg(test)]
