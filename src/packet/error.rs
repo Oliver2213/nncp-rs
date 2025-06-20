@@ -40,6 +40,18 @@ pub enum Error {
     #[error("Too big for allowed size")]
     TooBig,
     
+    /// Packet is too large for processing
+    #[error("Packet too large")]
+    PacketTooLarge,
+
+    /// Encryption operation failed
+    #[error("Encryption failed")]
+    EncryptionFailed,
+
+    /// Decryption operation failed  
+    #[error("Decryption failed")]
+    DecryptionFailed,
+    
     /// Invalid recipient
     #[error("Invalid recipient")]
     InvalidRecipient,
