@@ -1,7 +1,7 @@
 //! nncp library, containing structures for a local node, remote node, etc
 
 use crate::constants;
-use anyhow::{Context, Error};
+use anyhow::Error;
 use base32::{encode, Alphabet::RFC4648};
 
 use blake2::{digest::consts::U32, Blake2b, Digest};

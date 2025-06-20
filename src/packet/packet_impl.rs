@@ -59,6 +59,7 @@ pub struct Packet {
     /// Path length
     pub path_len: u8,
     /// Path data (up to MAX_PATH_SIZE bytes)
+    #[serde(with = "serde_bytes")]
     pub path: [u8; MAX_PATH_SIZE],
 }
 

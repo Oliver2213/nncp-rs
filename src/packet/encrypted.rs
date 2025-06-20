@@ -5,12 +5,10 @@
 use crate::packet::{Error, Packet};
 use crate::nncp::NodeID;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce, aead::Aead, KeyInit};
-use x25519_dalek::{EphemeralSecret, PublicKey as X25519PublicKey, StaticSecret};
-use ed25519_compact::{Signature, PublicKey as Ed25519PublicKey};
+use x25519_dalek::{EphemeralSecret, PublicKey as X25519PublicKey};
 use blake3;
 use serde::{Serialize, Deserialize};
 use std::io::{Read, Write};
-use std::collections::HashMap;
 
 const ENC_BLK_SIZE: usize = 128 * 1024; // 128KB blocks
 const POLY1305_TAG_SIZE: usize = 16;
@@ -80,11 +78,11 @@ impl EncryptedPacket {
         min_size: i64,
         max_size: i64,
         wrappers: i32,
-        mut reader: R,
+        reader: R,
         mut writer: W,
     ) -> Result<(Vec<u8>, i64), Error> {
         // Generate ephemeral keypair (equivalent to box.GenerateKey)
-        let ephemeral_secret = EphemeralSecret::new(rand::thread_rng());
+        let ephemeral_secret = EphemeralSecret::random_from_rng(rand::thread_rng());
         let ephemeral_public = X25519PublicKey::from(&ephemeral_secret);
         
         // Serialize the packet using XDR (equivalent to xdr.Marshal(&buf, pkt))
@@ -133,7 +131,7 @@ impl EncryptedPacket {
         let aead_size = ChaCha20Poly1305::new(&Key::from_slice(&key_size));
         
         // Associated data for AEAD (equivalent to blake3.Sum256)
-        let ad = blake3::hash(&tbs_raw);
+        let _ad = blake3::hash(&tbs_raw);
         
         // Initialize nonce
         let mut nonce_bytes = [0u8; 12];
@@ -161,7 +159,7 @@ impl EncryptedPacket {
             if n == ENC_BLK_SIZE {
                 // Full block - encrypt with aeadFull
                 let nonce = Nonce::from_slice(&nonce_bytes);
-                let ct = aead_full.encrypt(nonce, &data[..n])
+                let ct = aead_full.encrypt(nonce, data[..n].as_ref())
                     .map_err(|_| Error::Encryption("ChaCha20Poly1305 encryption failed".to_string()))?;
                 writer.write_all(&ct)?;
                 ctr_incr(&mut nonce_bytes);
@@ -193,11 +191,12 @@ impl EncryptedPacket {
             left.copy_from_slice(&data[n - left_size..n]);
             
             // First block: size info + partial data
-            data[pkt_size_overhead..].copy_from_slice(&data[..n - left_size]);
+            let temp_data = data[..n - left_size].to_vec();
+            data[pkt_size_overhead..].copy_from_slice(&temp_data);
             data[..pkt_size_overhead].copy_from_slice(&size_raw);
             
             let nonce = Nonce::from_slice(&nonce_bytes);
-            let ct = aead_size.encrypt(nonce, &data[..ENC_BLK_SIZE])
+            let ct = aead_size.encrypt(nonce, data[..ENC_BLK_SIZE].as_ref())
                 .map_err(|_| Error::Encryption("Size block encryption failed".to_string()))?;
             writer.write_all(&ct)?;
             ctr_incr(&mut nonce_bytes);
@@ -208,7 +207,8 @@ impl EncryptedPacket {
             &aead_full
         } else {
             // Size info + data fits in one block
-            data[pkt_size_overhead..pkt_size_overhead + n].copy_from_slice(&data[..n]);
+            let temp_data = data[..n].to_vec();
+            data[pkt_size_overhead..pkt_size_overhead + n].copy_from_slice(&temp_data);
             data[..pkt_size_overhead].copy_from_slice(&size_raw);
             data.truncate(n + pkt_size_overhead);
             &aead_size
@@ -227,7 +227,7 @@ impl EncryptedPacket {
         
         // Encrypt final block
         let nonce = Nonce::from_slice(&nonce_bytes);
-        let ct = aead_last.encrypt(nonce, &data)
+        let ct = aead_last.encrypt(nonce, data.as_ref())
             .map_err(|_| Error::Encryption("Final block encryption failed".to_string()))?;
         writer.write_all(&ct)?;
         
@@ -235,7 +235,7 @@ impl EncryptedPacket {
         let size_pad_left = size_pad - (size_block_padded as i64 - current_size as i64);
         if size_pad_left > 0 {
             let key_pad = blake3::derive_key(DERIVE_KEY_PAD_CTX, &shared_key);
-            let mut hasher = blake3::Hasher::new_keyed(&key_pad);
+            let hasher = blake3::Hasher::new_keyed(&key_pad);
             let mut xof = hasher.finalize_xof();
             
             // Stream padding data
@@ -256,7 +256,7 @@ impl EncryptedPacket {
     pub fn decrypt_packet<R: Read, W: Write>(
         mut reader: R,
         mut writer: W,
-        signature_verify: bool,
+        _signature_verify: bool,
         shared_key_cached: Option<&[u8]>,
     ) -> Result<(Vec<u8>, i64), Error> {
         // Read and deserialize header using XDR
@@ -282,7 +282,7 @@ impl EncryptedPacket {
             .map_err(|e| Error::Serialization(e.to_string()))?;
         
         // Associated data
-        let ad = blake3::hash(&tbs_raw);
+        let _ad = blake3::hash(&tbs_raw);
         
         // Derive shared key (placeholder for now)
         let shared_key = if let Some(cached) = shared_key_cached {
@@ -304,7 +304,7 @@ impl EncryptedPacket {
         // Decrypt full blocks
         let mut size = 0i64;
         let mut ct = vec![0u8; ENC_BLK_SIZE + POLY1305_TAG_SIZE];
-        let mut pt = vec![0u8; ENC_BLK_SIZE];
+        let _pt = vec![0u8; ENC_BLK_SIZE];
         
         // Read full blocks
         loop {
@@ -434,7 +434,7 @@ fn size_pad_calc(size_payload: i64, min_size: i64, wrappers: i32) -> i64 {
 /// Verify padding (equivalent to padding verification in Go)
 fn verify_padding<R: Read>(reader: &mut R, shared_key: &[u8], size_pad: i64) -> Result<(), Error> {
     let key_pad = blake3::derive_key(DERIVE_KEY_PAD_CTX, shared_key);
-    let mut hasher = blake3::Hasher::new_keyed(&key_pad);
+    let hasher = blake3::Hasher::new_keyed(&key_pad);
     let mut xof = hasher.finalize_xof();
     
     let mut expected = vec![0u8; 8192];
