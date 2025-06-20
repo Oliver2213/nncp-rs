@@ -3,7 +3,8 @@
 //! This module provides functionality for encrypted packets compatible with the Go implementation.
 
 use crate::packet::{Error, Packet};
-use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce, aead::{Aead, NewAead}};
+use crate::nncp::NodeID;
+use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce, aead::Aead, KeyInit};
 use x25519_dalek::{EphemeralSecret, PublicKey as X25519PublicKey, StaticSecret};
 use ed25519_compact::{Signature, PublicKey as Ed25519PublicKey};
 use blake3;
@@ -18,9 +19,6 @@ const POLY1305_TAG_SIZE: usize = 16;
 const DERIVE_KEY_FULL_CTX: &str = "NNCPE\x00\x00\x06 FULL";
 const DERIVE_KEY_SIZE_CTX: &str = "NNCPE\x00\x00\x06 SIZE"; 
 const DERIVE_KEY_PAD_CTX: &str = "NNCPE\x00\x00\x06 PAD";
-
-/// Node ID type (placeholder - should match your actual NodeID type)
-pub type NodeID = [u8; 32];
 
 /// Encrypted packet header (PktEnc in Go)
 #[derive(Debug, Clone, Serialize, Deserialize)]

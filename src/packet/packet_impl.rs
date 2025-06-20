@@ -4,13 +4,14 @@
 
 use std::io::{self, Read, Write};
 use bytes::{BufMut, BytesMut};
+use serde::{Serialize, Deserialize};
 
 use crate::magic::NNCP_P_V3;
 use crate::packet::Error;
 use crate::constants::MAX_PATH_SIZE;
 
 /// Type of NNCP packet
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum PacketType {
     /// File transfer packet
@@ -47,7 +48,7 @@ impl TryFrom<u8> for PacketType {
 }
 
 /// NNCP packet structure
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Packet {
     /// Magic number identifying the packet type and version
     pub magic: [u8; 8],
