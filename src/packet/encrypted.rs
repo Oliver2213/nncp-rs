@@ -4,19 +4,16 @@
 
 use crate::packet::{Error, Packet};
 use crate::nncp::NodeID;
+use crate::constants::{
+    ENC_BLK_SIZE, POLY1305_TAG_SIZE, NNCP_E_V6_MAGIC,
+    DERIVE_KEY_FULL_CTX, DERIVE_KEY_SIZE_CTX, DERIVE_KEY_PAD_CTX,
+    PKT_OVERHEAD, PKT_ENC_OVERHEAD, PKT_SIZE_OVERHEAD, PAD_BUFFER_SIZE
+};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce, aead::Aead, KeyInit};
 use x25519_dalek::{EphemeralSecret, PublicKey as X25519PublicKey};
 use blake3;
 use serde::{Serialize, Deserialize};
 use std::io::{Read, Write};
-
-const ENC_BLK_SIZE: usize = 128 * 1024; // 128KB blocks
-const POLY1305_TAG_SIZE: usize = 16;
-
-// Key derivation contexts (must match Go exactly)
-const DERIVE_KEY_FULL_CTX: &str = "NNCPE\x00\x00\x06 FULL";
-const DERIVE_KEY_SIZE_CTX: &str = "NNCPE\x00\x00\x06 SIZE"; 
-const DERIVE_KEY_PAD_CTX: &str = "NNCPE\x00\x00\x06 PAD";
 
 /// Encrypted packet header (PktEnc in Go)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,7 +89,7 @@ impl EncryptedPacket {
         
         // Create TBS (to-be-signed) structure
         let tbs = PktTbs {
-            magic: [b'N', b'N', b'C', b'P', b'E', 0, 0, 6], // MagicNNCPEv6
+            magic: NNCP_E_V6_MAGIC,
             nice,
             sender: [0u8; 32], // Placeholder - needs actual node ID
             recipient: [0u8; 32], // Placeholder - needs actual node ID
@@ -106,7 +103,7 @@ impl EncryptedPacket {
         
         // Create packet header (signature placeholder for now)
         let pkt_enc = PktEnc {
-            magic: [b'N', b'N', b'C', b'P', b'E', 0, 0, 6],
+            magic: NNCP_E_V6_MAGIC,
             nice,
             sender: [0u8; 32], // Placeholder
             recipient: [0u8; 32], // Placeholder
@@ -264,7 +261,7 @@ impl EncryptedPacket {
             .map_err(|e| Error::Serialization(e.to_string()))?;
         
         // Verify magic number
-        if pkt_enc.magic != [b'N', b'N', b'C', b'P', b'E', 0, 0, 6] {
+        if pkt_enc.magic != NNCP_E_V6_MAGIC {
             return Err(Error::BadMagic);
         }
         
@@ -409,8 +406,7 @@ fn ctr_incr(nonce: &mut [u8; 12]) {
 
 /// Calculate size with authentication tags (equivalent to sizeWithTags in Go)
 fn size_with_tags(size: i64) -> i64 {
-    let pkt_size_overhead = 16i64; // Simplified - should calculate actual XDR overhead
-    let mut full_size = size + pkt_size_overhead;
+    let mut full_size = size + PKT_SIZE_OVERHEAD;
     full_size += (size / ENC_BLK_SIZE as i64) * POLY1305_TAG_SIZE as i64;
     if size % ENC_BLK_SIZE as i64 != 0 {
         full_size += POLY1305_TAG_SIZE as i64;
@@ -420,12 +416,9 @@ fn size_with_tags(size: i64) -> i64 {
 
 /// Calculate padding size (equivalent to sizePadCalc in Go)
 fn size_pad_calc(size_payload: i64, min_size: i64, wrappers: i32) -> i64 {
-    let pkt_overhead = 11i64; // Simplified - should calculate actual packet overhead
-    let pkt_enc_overhead = 120i64; // Simplified - should calculate actual encrypted packet overhead
-    
-    let mut expected_size = size_payload - pkt_overhead;
+    let mut expected_size = size_payload - PKT_OVERHEAD;
     for _ in 0..wrappers {
-        expected_size = pkt_enc_overhead + size_with_tags(pkt_overhead + expected_size);
+        expected_size = PKT_ENC_OVERHEAD + size_with_tags(PKT_OVERHEAD + expected_size);
     }
     let size_pad = min_size - expected_size;
     if size_pad < 0 { 0 } else { size_pad }
@@ -437,8 +430,8 @@ fn verify_padding<R: Read>(reader: &mut R, shared_key: &[u8], size_pad: i64) -> 
     let hasher = blake3::Hasher::new_keyed(&key_pad);
     let mut xof = hasher.finalize_xof();
     
-    let mut expected = vec![0u8; 8192];
-    let mut actual = vec![0u8; 8192];
+    let mut expected = vec![0u8; PAD_BUFFER_SIZE];
+    let mut actual = vec![0u8; PAD_BUFFER_SIZE];
     let mut remaining = size_pad;
     
     while remaining > 0 {
