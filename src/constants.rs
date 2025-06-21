@@ -54,3 +54,27 @@ pub const MTH_NODE_KEY: [u8; 32] = [
     0xda, 0xa8, 0xf8, 0x00, 0xd8, 0x26, 0xa1, 0xc1, 0x5a, 0x23, 0x31, 0x7c, 0x46, 0x97, 0xf2, 0x83,
     0x76, 0x12, 0x53, 0xe8, 0xa0, 0x5e, 0x93, 0x07, 0x4e, 0xad, 0xf0, 0xed, 0x3e, 0x2d, 0x68, 0xa9
 ];
+
+/// Niceness level ranges (priority levels from highest to lowest)
+/// Flash niceness range (highest priority)
+pub const NICE_FLASH_MIN: u8 = 0;
+pub const NICE_FLASH_MAX: u8 = 63;
+pub const NICE_FLASH_BASE: u8 = 32;
+
+/// Priority niceness range
+pub const NICE_PRIORITY_MIN: u8 = 64;
+pub const NICE_PRIORITY_MAX: u8 = 127;
+pub const NICE_PRIORITY_BASE: u8 = 96;
+
+/// Normal niceness range
+pub const NICE_NORMAL_MIN: u8 = 128;
+pub const NICE_NORMAL_MAX: u8 = 191;
+pub const NICE_NORMAL_BASE: u8 = 160;
+
+/// Bulk niceness range (lowest priority)
+pub const NICE_BULK_MIN: u8 = 192;
+pub const NICE_BULK_MAX: u8 = 254;
+pub const NICE_BULK_BASE: u8 = 224;
+
+/// Maximum niceness value
+pub const NICE_MAX: u8 = 255;

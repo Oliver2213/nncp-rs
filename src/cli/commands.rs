@@ -4,7 +4,7 @@ use clap::Parser;
 use clap::Subcommand;
 use nncp_rs::constants::{self, MTH_BLOCK_SIZE, NNCP_E_V6_MAGIC};
 use nncp_rs::packet::{MTH, Hash, Packet, PacketType};
-use nncp_rs::packet::encrypted::{PktEnc, PktSize};
+use nncp_rs::packet::encrypted::PktEnc;
 use nncp_rs::magic::NNCP_P_V3;
 use std::path::PathBuf;
 use std::io::{self, BufReader, Read, Seek, Write};
@@ -172,87 +172,7 @@ pub fn hash_file(
     Ok(())
 }
 
-/// Format niceness value (equivalent to Go's NicenessFmt)
-pub fn format_niceness(nice: u8) -> String {
-    match nice {
-        0..=63 => {
-            let offset = nice as i16 - 32;
-            if offset == 0 {
-                "F".to_string()
-            } else {
-                format!("F{:+}", offset)
-            }
-        }
-        64..=127 => {
-            let offset = nice as i16 - 96;
-            if offset == 0 {
-                "P".to_string()
-            } else {
-                format!("P{:+}", offset)
-            }
-        }
-        128..=191 => {
-            let offset = nice as i16 - 160;
-            if offset == 0 {
-                "N".to_string()
-            } else {
-                format!("N{:+}", offset)
-            }
-        }
-        192..=254 => {
-            let offset = nice as i16 - 224;
-            if offset == 0 {
-                "B".to_string()
-            } else {
-                format!("B{:+}", offset)
-            }
-        }
-        255 => "MAX".to_string(),
-    }
-}
 
-/// Format path based on packet type (equivalent to Go's path formatting)
-pub fn format_path(packet_type: PacketType, path: &[u8]) -> String {
-    match packet_type {
-        PacketType::Exec => {
-            // Replace null bytes with spaces for exec commands
-            String::from_utf8_lossy(path).replace('\0', " ")
-        }
-        PacketType::Trns => {
-            // For transit packets, path should be a NodeID (32 bytes)
-            if path.len() >= 32 {
-                let node_id: [u8; 32] = path[..32].try_into().unwrap_or([0; 32]);
-                // TODO: Look up node name from configuration
-                base32::encode(base32::Alphabet::RFC4648 { padding: false }, &node_id)
-            } else {
-                hex::encode(path)
-            }
-        }
-        PacketType::Area => {
-            // For area packets, path should be an area ID (32 bytes)
-            if path.len() >= 32 {
-                let area_id: [u8; 32] = path[..32].try_into().unwrap_or([0; 32]);
-                // TODO: Look up area name from configuration
-                base32::encode(base32::Alphabet::RFC4648 { padding: false }, &area_id)
-            } else {
-                hex::encode(path)
-            }
-        }
-        PacketType::ACK => {
-            // For ACK packets, path should be a packet ID (32 bytes)
-            if path.len() >= 32 {
-                let pkt_id: [u8; 32] = path[..32].try_into().unwrap_or([0; 32]);
-                base32::encode(base32::Alphabet::RFC4648 { padding: false }, &pkt_id)
-            } else {
-                hex::encode(path)
-            }
-        }
-        _ => {
-            // For other packet types, treat as UTF-8 string
-            String::from_utf8_lossy(path).to_string()
-        }
-    }
-}
 
 /// Determine packet type and parse packet from stdin (equivalent to nncp-pkt main logic)
 pub fn parse_packet(
@@ -289,7 +209,15 @@ pub fn parse_packet(
             
             if dump {
                 // TODO: Implement decryption and payload dumping
-                eprintln!("Decryption not yet implemented");
+                eprintln!("Warning: Decryption not yet implemented for encrypted packets");
+                // For now, just read and dump remaining encrypted data
+                let mut remaining_data = Vec::new();
+                reader.read_to_end(&mut remaining_data)?;
+                
+                if decompress {
+                    eprintln!("Warning: Cannot decompress encrypted payload without decryption");
+                }
+                io::stdout().write_all(&remaining_data)?;
             }
             return Ok(());
         }
@@ -304,22 +232,33 @@ pub fn parse_packet(
         // Read the rest of the data
         reader.read_to_end(&mut all_data)?;
         
-        // Use XDR to deserialize the packet header
+        // Try XDR deserialization first
         let mut cursor = std::io::Cursor::new(&all_data);
-        let packet: Packet = serde_xdr::from_reader(&mut cursor)
-            .map_err(|e| anyhow::anyhow!("Failed to parse plain packet: {}", e))?;
-        
-        print_plain_packet_info(&packet)?;
-        
-        if dump {
-            // Dump remaining payload after packet header
-            let remaining_data = &all_data[cursor.position() as usize..];
-            if decompress {
-                eprintln!("Warning: zstd decompression not yet implemented, dumping raw data");
+        if let Ok(packet) = serde_xdr::from_reader::<_, Packet>(&mut cursor) {
+            print_plain_packet_info(&packet)?;
+            
+            if dump {
+                // Dump remaining payload after packet header
+                let remaining_data = &all_data[cursor.position() as usize..];
+                dump_payload_data(remaining_data, decompress)?;
             }
-            io::stdout().write_all(remaining_data)?;
+            return Ok(());
         }
-        return Ok(());
+        
+        // If XDR fails, try binary format
+        cursor.set_position(0);
+        if let Ok(packet) = Packet::decode(&mut cursor) {
+            print_plain_packet_info(&packet)?;
+            
+            if dump {
+                // Dump remaining payload after packet header
+                let remaining_data = &all_data[cursor.position() as usize..];
+                dump_payload_data(remaining_data, decompress)?;
+            }
+            return Ok(());
+        }
+        
+        return Err(anyhow::anyhow!("Failed to parse plain packet with either XDR or binary format"));
     }
 
     Err(anyhow::anyhow!("Unable to determine packet type: unknown magic {:?}", 
@@ -390,7 +329,7 @@ fn try_parse_plain<R: Read>(header_buf: &mut [u8], reader: &mut R) -> Result<Pac
 /// Print encrypted packet information
 fn print_encrypted_packet_info(pkt: &PktEnc) -> Result<(), Error> {
     println!("Packet type: encrypted");
-    println!("Niceness: {} ({})", format_niceness(pkt.nice), pkt.nice);
+    println!("Niceness: {} ({})", Packet::format_niceness_value(pkt.nice), pkt.nice);
     println!("Sender: {}", base32::encode(base32::Alphabet::RFC4648 { padding: false }, &pkt.sender));
     println!("Recipient: {}", base32::encode(base32::Alphabet::RFC4648 { padding: false }, &pkt.recipient));
     println!("Exchange public key: {}", hex::encode(&pkt.exch_pub));
@@ -401,12 +340,11 @@ fn print_encrypted_packet_info(pkt: &PktEnc) -> Result<(), Error> {
 /// Print plain packet information
 fn print_plain_packet_info(pkt: &Packet) -> Result<(), Error> {
     println!("Packet type: {:?}", pkt.packet_type);
-    println!("Niceness: {} ({})", format_niceness(pkt.nice), pkt.nice);
+    println!("Niceness: {} ({})", pkt.format_niceness(), pkt.nice);
     println!("Path length: {}", pkt.path_len);
     
     if pkt.path_len > 0 {
-        let formatted_path = format_path(pkt.packet_type, pkt.path());
-        println!("Path: {}", formatted_path);
+        println!("Path: {}", pkt.format_path());
     }
     
     Ok(())
@@ -434,18 +372,30 @@ fn print_overheads() -> Result<(), Error> {
     Ok(())
 }
 
+/// Dump payload data to stdout with optional decompression
+fn dump_payload_data(data: &[u8], decompress: bool) -> Result<(), Error> {
+    if decompress {
+        // Decompress using zstd
+        match zstd::bulk::decompress(data, 1024 * 1024 * 10) { // 10MB max
+            Ok(decompressed) => {
+                io::stdout().write_all(&decompressed)?;
+            }
+            Err(e) => {
+                eprintln!("Warning: zstd decompression failed: {}, dumping raw data", e);
+                io::stdout().write_all(data)?;
+            }
+        }
+    } else {
+        io::stdout().write_all(data)?;
+    }
+    Ok(())
+}
+
 /// Dump remaining payload to stdout
 fn dump_remaining_payload<R: Read>(reader: &mut R, decompress: bool) -> Result<(), Error> {
     let mut buffer = Vec::new();
     reader.read_to_end(&mut buffer)?;
-    
-    if decompress {
-        // TODO: Implement zstd decompression
-        eprintln!("Warning: zstd decompression not yet implemented, dumping raw data");
-    }
-    
-    io::stdout().write_all(&buffer)?;
-    Ok(())
+    dump_payload_data(&buffer, decompress)
 }
 
 #[cfg(test)]
@@ -455,46 +405,63 @@ mod tests {
     #[test]
     fn test_niceness_formatting() {
         // Test Flash niceness range (0-63)
-        assert_eq!(format_niceness(0), "F-32");
-        assert_eq!(format_niceness(32), "F");
-        assert_eq!(format_niceness(63), "F+31");
+        assert_eq!(Packet::format_niceness_value(0), "F-32");
+        assert_eq!(Packet::format_niceness_value(32), "F");
+        assert_eq!(Packet::format_niceness_value(63), "F+31");
         
         // Test Priority niceness range (64-127)
-        assert_eq!(format_niceness(64), "P-32");
-        assert_eq!(format_niceness(96), "P");
-        assert_eq!(format_niceness(127), "P+31");
+        assert_eq!(Packet::format_niceness_value(64), "P-32");
+        assert_eq!(Packet::format_niceness_value(96), "P");
+        assert_eq!(Packet::format_niceness_value(127), "P+31");
         
         // Test Normal niceness range (128-191)
-        assert_eq!(format_niceness(128), "N-32");
-        assert_eq!(format_niceness(160), "N");
-        assert_eq!(format_niceness(191), "N+31");
+        assert_eq!(Packet::format_niceness_value(128), "N-32");
+        assert_eq!(Packet::format_niceness_value(160), "N");
+        assert_eq!(Packet::format_niceness_value(191), "N+31");
         
         // Test Bulk niceness range (192-254)
-        assert_eq!(format_niceness(192), "B-32");
-        assert_eq!(format_niceness(224), "B");
-        assert_eq!(format_niceness(254), "B+30");
+        assert_eq!(Packet::format_niceness_value(192), "B-32");
+        assert_eq!(Packet::format_niceness_value(224), "B");
+        assert_eq!(Packet::format_niceness_value(254), "B+30");
         
         // Test MAX niceness
-        assert_eq!(format_niceness(255), "MAX");
+        assert_eq!(Packet::format_niceness_value(255), "MAX");
     }
 
     #[test]
     fn test_path_formatting() {
         // Test file path formatting
         let file_path = b"/path/to/file.txt";
-        assert_eq!(format_path(PacketType::File, file_path), "/path/to/file.txt");
+        assert_eq!(Packet::format_path_for_type(PacketType::File, file_path), "/path/to/file.txt");
         
         // Test exec command formatting with null bytes
         let exec_cmd = b"echo\x00hello\x00world";
-        assert_eq!(format_path(PacketType::Exec, exec_cmd), "echo hello world");
+        assert_eq!(Packet::format_path_for_type(PacketType::Exec, exec_cmd), "echo hello world");
         
         // Test 32-byte node ID for transit packets
         let node_id = [0u8; 32];
         let expected_base32 = base32::encode(base32::Alphabet::RFC4648 { padding: false }, &node_id);
-        assert_eq!(format_path(PacketType::Trns, &node_id), expected_base32);
+        assert_eq!(Packet::format_path_for_type(PacketType::Trns, &node_id), expected_base32);
         
         // Test shorter data for transit packets
         let short_data = b"short";
-        assert_eq!(format_path(PacketType::Trns, short_data), hex::encode(short_data));
+        assert_eq!(Packet::format_path_for_type(PacketType::Trns, short_data), hex::encode(short_data));
+    }
+
+    #[test]
+    fn test_zstd_decompression() {
+        // Test data
+        let original_data = b"This is test data that will be compressed with zstd. ".repeat(10);
+        
+        // Compress the data
+        let compressed_data = zstd::bulk::compress(&original_data, 3).unwrap();
+        
+        // Test decompression
+        let decompressed_data = zstd::bulk::decompress(&compressed_data, 1024 * 1024).unwrap();
+        
+        assert_eq!(original_data, decompressed_data);
+        
+        // Test that compression actually reduced size
+        assert!(compressed_data.len() < original_data.len());
     }
 }

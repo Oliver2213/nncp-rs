@@ -8,7 +8,12 @@ use serde::{Serialize, Deserialize};
 
 use crate::magic::NNCP_P_V3;
 use crate::packet::Error;
-use crate::constants::MAX_PATH_SIZE;
+use crate::constants::{
+    MAX_PATH_SIZE, NICE_FLASH_MIN, NICE_FLASH_MAX, NICE_FLASH_BASE,
+    NICE_PRIORITY_MIN, NICE_PRIORITY_MAX, NICE_PRIORITY_BASE,
+    NICE_NORMAL_MIN, NICE_NORMAL_MAX, NICE_NORMAL_BASE,
+    NICE_BULK_MIN, NICE_BULK_MAX, NICE_BULK_BASE, NICE_MAX
+};
 
 /// Type of NNCP packet
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -218,6 +223,98 @@ impl Packet {
     pub fn to_specific<T: PacketContent>(&self) -> Result<T, Error> {
         T::from_packet(self)
     }
+
+    /// Format niceness value (equivalent to Go's NicenessFmt)
+    pub fn format_niceness(&self) -> String {
+        Self::format_niceness_value(self.nice)
+    }
+
+    /// Format niceness value for any u8 niceness level
+    pub fn format_niceness_value(nice: u8) -> String {
+        match nice {
+            NICE_FLASH_MIN..=NICE_FLASH_MAX => {
+                let offset = nice as i16 - NICE_FLASH_BASE as i16;
+                if offset == 0 {
+                    "F".to_string()
+                } else {
+                    format!("F{:+}", offset)
+                }
+            }
+            NICE_PRIORITY_MIN..=NICE_PRIORITY_MAX => {
+                let offset = nice as i16 - NICE_PRIORITY_BASE as i16;
+                if offset == 0 {
+                    "P".to_string()
+                } else {
+                    format!("P{:+}", offset)
+                }
+            }
+            NICE_NORMAL_MIN..=NICE_NORMAL_MAX => {
+                let offset = nice as i16 - NICE_NORMAL_BASE as i16;
+                if offset == 0 {
+                    "N".to_string()
+                } else {
+                    format!("N{:+}", offset)
+                }
+            }
+            NICE_BULK_MIN..=NICE_BULK_MAX => {
+                let offset = nice as i16 - NICE_BULK_BASE as i16;
+                if offset == 0 {
+                    "B".to_string()
+                } else {
+                    format!("B{:+}", offset)
+                }
+            }
+            NICE_MAX => "MAX".to_string(),
+        }
+    }
+
+    /// Format path based on packet type (equivalent to Go's path formatting)
+    pub fn format_path(&self) -> String {
+        Self::format_path_for_type(self.packet_type, self.path())
+    }
+
+    /// Format path for a specific packet type and path data
+    pub fn format_path_for_type(packet_type: PacketType, path: &[u8]) -> String {
+        match packet_type {
+            PacketType::Exec => {
+                // Replace null bytes with spaces for exec commands
+                String::from_utf8_lossy(path).replace('\0', " ")
+            }
+            PacketType::Trns => {
+                // For transit packets, path should be a NodeID (32 bytes)
+                if path.len() >= 32 {
+                    let node_id: [u8; 32] = path[..32].try_into().unwrap_or([0; 32]);
+                    // TODO: Look up node name from configuration
+                    base32::encode(base32::Alphabet::RFC4648 { padding: false }, &node_id)
+                } else {
+                    hex::encode(path)
+                }
+            }
+            PacketType::Area => {
+                // For area packets, path should be an area ID (32 bytes)
+                if path.len() >= 32 {
+                    let area_id: [u8; 32] = path[..32].try_into().unwrap_or([0; 32]);
+                    // TODO: Look up area name from configuration
+                    base32::encode(base32::Alphabet::RFC4648 { padding: false }, &area_id)
+                } else {
+                    hex::encode(path)
+                }
+            }
+            PacketType::ACK => {
+                // For ACK packets, path should be a packet ID (32 bytes)
+                if path.len() >= 32 {
+                    let pkt_id: [u8; 32] = path[..32].try_into().unwrap_or([0; 32]);
+                    base32::encode(base32::Alphabet::RFC4648 { padding: false }, &pkt_id)
+                } else {
+                    hex::encode(path)
+                }
+            }
+            _ => {
+                // For other packet types, treat as UTF-8 string
+                String::from_utf8_lossy(path).to_string()
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -252,5 +349,63 @@ mod tests {
         } else {
             panic!("Expected PathTooLong error");
         }
+    }
+
+    #[test]
+    fn test_niceness_formatting() {
+        // Test Flash niceness range (0-63)
+        assert_eq!(Packet::format_niceness_value(0), "F-32");
+        assert_eq!(Packet::format_niceness_value(32), "F");
+        assert_eq!(Packet::format_niceness_value(63), "F+31");
+        
+        // Test Priority niceness range (64-127)
+        assert_eq!(Packet::format_niceness_value(64), "P-32");
+        assert_eq!(Packet::format_niceness_value(96), "P");
+        assert_eq!(Packet::format_niceness_value(127), "P+31");
+        
+        // Test Normal niceness range (128-191)
+        assert_eq!(Packet::format_niceness_value(128), "N-32");
+        assert_eq!(Packet::format_niceness_value(160), "N");
+        assert_eq!(Packet::format_niceness_value(191), "N+31");
+        
+        // Test Bulk niceness range (192-254)
+        assert_eq!(Packet::format_niceness_value(192), "B-32");
+        assert_eq!(Packet::format_niceness_value(224), "B");
+        assert_eq!(Packet::format_niceness_value(254), "B+30");
+        
+        // Test MAX niceness
+        assert_eq!(Packet::format_niceness_value(255), "MAX");
+    }
+
+    #[test]
+    fn test_path_formatting() {
+        // Test file path formatting
+        let file_path = b"/path/to/file.txt";
+        assert_eq!(Packet::format_path_for_type(PacketType::File, file_path), "/path/to/file.txt");
+        
+        // Test exec command formatting with null bytes
+        let exec_cmd = b"echo\x00hello\x00world";
+        assert_eq!(Packet::format_path_for_type(PacketType::Exec, exec_cmd), "echo hello world");
+        
+        // Test 32-byte node ID for transit packets
+        let node_id = [0u8; 32];
+        let expected_base32 = base32::encode(base32::Alphabet::RFC4648 { padding: false }, &node_id);
+        assert_eq!(Packet::format_path_for_type(PacketType::Trns, &node_id), expected_base32);
+        
+        // Test shorter data for transit packets
+        let short_data = b"short";
+        assert_eq!(Packet::format_path_for_type(PacketType::Trns, short_data), hex::encode(short_data));
+    }
+
+    #[test]
+    fn test_packet_methods() {
+        let path = b"/test/file.txt";
+        let packet = Packet::new(PacketType::File, 160, path).unwrap();
+        
+        // Test format_niceness method
+        assert_eq!(packet.format_niceness(), "N");
+        
+        // Test format_path method
+        assert_eq!(packet.format_path(), "/test/file.txt");
     }
 }
