@@ -27,6 +27,9 @@ fn main() -> Result<(), Error> {
         cli::Commands::Hash { file, seek, force_fat, progress, debug } => {
             cli::commands::hash_file(file, *seek, *force_fat, *progress, *debug)?
         },
+        cli::Commands::Pkt { overheads, dump, decompress } => {
+            cli::commands::parse_packet(*overheads, *dump, *decompress)?
+        },
     }
     Ok(())
 }

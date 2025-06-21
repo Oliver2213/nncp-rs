@@ -12,7 +12,7 @@ mod freq;
 mod trns;
 mod mth;
 mod eblob;
-mod encrypted;
+pub mod encrypted;
 
 // Re-export key components
 pub use error::Error;

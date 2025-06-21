@@ -600,6 +600,6 @@ mod tests {
     fn test_size_with_tags() {
         let size = ENC_BLK_SIZE as i64;
         let result = size_with_tags(size);
-        assert!(result > size);
+        assert!(result.unwrap() > size);
     }
 }
