@@ -24,7 +24,9 @@ fn main() -> Result<(), Error> {
     match &cli.command {
         cli::Commands::GenerateNode => cli::node::generate_node(ctx)?,
         cli::Commands::PrintLocalNode{emojify} => cli::node::print_local_node(ctx, *emojify),
-        // ...
+        cli::Commands::Hash { file, seek, force_fat, progress, debug } => {
+            cli::commands::hash_file(file, *seek, *force_fat, *progress, *debug)?
+        },
     }
     Ok(())
 }

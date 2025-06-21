@@ -39,6 +39,7 @@ emoji256 = "0.2.2"
 fs2 = "0.4.3"
 dialoguer = "0.10.4"
 serde-xdr = "0.6.0"
+hex = "0.4"
 
 [build-dependencies]
 #build-info-build = "0.0.30"
