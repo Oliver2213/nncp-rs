@@ -93,6 +93,54 @@ impl Packet {
         Ok(packet)
     }
 
+    /// Calculate the overhead size of this packet when serialized
+    /// Equivalent to Go's PktOverhead calculation
+    pub fn overhead(&self) -> Result<i64, Error> {
+        // Serialize the packet to calculate actual overhead
+        let mut buffer = Vec::new();
+        serde_xdr::to_writer(&mut buffer, self)
+            .map_err(|e| Error::Serialization(e.to_string()))?;
+        Ok(buffer.len() as i64)
+    }
+
+    /// Calculate the overhead size for encrypted packets
+    /// Equivalent to Go's PktEncOverhead calculation
+    pub fn enc_overhead(nice: u8, sender: &[u8; 32], recipient: &[u8; 32]) -> Result<i64, Error> {
+        use crate::packet::encrypted::PktEnc;
+        
+        // Create a sample encrypted packet header to calculate overhead
+        let pkt_enc = PktEnc {
+            magic: crate::constants::NNCP_E_V6_MAGIC,
+            nice,
+            sender: *sender,
+            recipient: *recipient,
+            exch_pub: [0u8; 32], // Sample public key
+            sign: [0u8; 64], // Sample signature
+        };
+        
+        let mut buffer = Vec::new();
+        serde_xdr::to_writer(&mut buffer, &pkt_enc)
+            .map_err(|e| Error::Serialization(e.to_string()))?;
+        Ok(buffer.len() as i64)
+    }
+
+    /// Calculate the size overhead for packet size information
+    /// Equivalent to Go's size calculation for PktSize structure
+    pub fn size_overhead() -> Result<i64, Error> {
+        use crate::packet::encrypted::PktSize;
+        
+        // Create a sample PktSize to calculate overhead
+        let pkt_size = PktSize {
+            payload: 0,
+            pad: 0,
+        };
+        
+        let mut buffer = Vec::new();
+        serde_xdr::to_writer(&mut buffer, &pkt_size)
+            .map_err(|e| Error::Serialization(e.to_string()))?;
+        Ok(buffer.len() as i64)
+    }
+
     /// Encode the packet to a writer
     pub fn encode<W: Write>(&self, writer: &mut W) -> io::Result<usize> {
         let mut buffer = BytesMut::with_capacity(

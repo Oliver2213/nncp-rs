@@ -3,17 +3,18 @@
 //! This module provides functionality for encrypted packets compatible with the Go implementation.
 
 use crate::packet::{Error, Packet};
-use crate::nncp::NodeID;
+use crate::nncp::{NodeID, LocalNNCPNode, RemoteNNCPNode};
 use crate::constants::{
     ENC_BLK_SIZE, POLY1305_TAG_SIZE, NNCP_E_V6_MAGIC,
     DERIVE_KEY_FULL_CTX, DERIVE_KEY_SIZE_CTX, DERIVE_KEY_PAD_CTX,
-    PKT_OVERHEAD, PKT_ENC_OVERHEAD, PKT_SIZE_OVERHEAD, PAD_BUFFER_SIZE
+    PAD_BUFFER_SIZE
 };
-use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce, aead::Aead, KeyInit};
+use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce, aead::{Aead, Payload}, KeyInit};
 use x25519_dalek::{EphemeralSecret, PublicKey as X25519PublicKey};
 use blake3;
 use serde::{Serialize, Deserialize};
 use std::io::{Read, Write};
+use ed25519_compact::Noise;
 
 /// Encrypted packet header (PktEnc in Go)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,7 +44,7 @@ struct PktTbs {
 
 /// Packet size information (PktSize in Go)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct PktSize {
+pub struct PktSize {
     pub payload: u64,
     pub pad: u64,
 }
@@ -70,6 +71,8 @@ impl EncryptedPacket {
 
     /// Encrypt a packet and write to output (equivalent to PktEncWrite in Go)
     pub fn encrypt_packet<R: Read, W: Write>(
+        our_node: &LocalNNCPNode,
+        their_node: &RemoteNNCPNode,
         packet: &Packet,
         nice: u8,
         min_size: i64,
@@ -91,8 +94,8 @@ impl EncryptedPacket {
         let tbs = PktTbs {
             magic: NNCP_E_V6_MAGIC,
             nice,
-            sender: [0u8; 32], // Placeholder - needs actual node ID
-            recipient: [0u8; 32], // Placeholder - needs actual node ID
+            sender: our_node.id(),
+            recipient: their_node.id(),
             exch_pub: ephemeral_public.to_bytes(),
         };
         
@@ -101,14 +104,17 @@ impl EncryptedPacket {
         serde_xdr::to_writer(&mut tbs_raw, &tbs)
             .map_err(|e| Error::Serialization(e.to_string()))?;
         
-        // Create packet header (signature placeholder for now)
+        // Sign the TBS
+        let signature = our_node.signing_kp.sk.sign(&tbs_raw, Some(Noise::default()));
+        
+        // Create packet header with real signature
         let pkt_enc = PktEnc {
             magic: NNCP_E_V6_MAGIC,
             nice,
-            sender: [0u8; 32], // Placeholder
-            recipient: [0u8; 32], // Placeholder
+            sender: our_node.id(),
+            recipient: their_node.id(),
             exch_pub: ephemeral_public.to_bytes(),
-            sign: [0u8; 64], // Placeholder signature
+            sign: (*signature).into(),
         };
         
         // Serialize and write header using XDR
@@ -117,8 +123,9 @@ impl EncryptedPacket {
             .map_err(|e| Error::Serialization(e.to_string()))?;
         writer.write_all(&pkt_enc_raw)?;
         
-        // Derive shared key (placeholder - needs actual key exchange)
-        let shared_key = [0u8; 32]; // Placeholder
+        // Perform X25519 key exchange
+        let their_x25519_pub = X25519PublicKey::from(*their_node.exchpub.as_bytes());
+        let shared_key = ephemeral_secret.diffie_hellman(&their_x25519_pub).to_bytes();
         
         // Derive encryption keys using BLAKE3 (equivalent to blake3.DeriveKey)
         let key_full = blake3::derive_key(DERIVE_KEY_FULL_CTX, &shared_key);
@@ -128,7 +135,7 @@ impl EncryptedPacket {
         let aead_size = ChaCha20Poly1305::new(&Key::from_slice(&key_size));
         
         // Associated data for AEAD (equivalent to blake3.Sum256)
-        let _ad = blake3::hash(&tbs_raw);
+        let ad = blake3::hash(&tbs_raw);
         
         // Initialize nonce
         let mut nonce_bytes = [0u8; 12];
@@ -141,9 +148,9 @@ impl EncryptedPacket {
         let mut size_payload = 0i64;
         let mut data = vec![0u8; ENC_BLK_SIZE];
         
-        // Read and encrypt full blocks
+        // Read and encrypt full blocks (equivalent to Go's io.ReadFull)
         loop {
-            let n = multi_reader.read(&mut data)?;
+            let n = read_full(&mut multi_reader, &mut data)?;
             if n == 0 {
                 break;
             }
@@ -154,9 +161,13 @@ impl EncryptedPacket {
             }
             
             if n == ENC_BLK_SIZE {
-                // Full block - encrypt with aeadFull
+                // Full block - encrypt with aeadFull using associated data
                 let nonce = Nonce::from_slice(&nonce_bytes);
-                let ct = aead_full.encrypt(nonce, data[..n].as_ref())
+                let payload = Payload {
+                    msg: &data[..n],
+                    aad: ad.as_bytes(),
+                };
+                let ct = aead_full.encrypt(nonce, payload)
                     .map_err(|_| Error::Encryption("ChaCha20Poly1305 encryption failed".to_string()))?;
                 writer.write_all(&ct)?;
                 ctr_incr(&mut nonce_bytes);
@@ -167,13 +178,21 @@ impl EncryptedPacket {
         }
         
         // Handle final block with size information
-        let size_pad = size_pad_calc(size_payload, min_size, wrappers);
+        let size_pad = size_pad_calc(
+            size_payload, 
+            min_size, 
+            wrappers, 
+            packet, 
+            &our_node.id(),
+            &their_node.id(),
+            nice
+        )?;
         let pkt_size = PktSize {
             payload: size_payload as u64,
             pad: size_pad as u64,
         };
         
-        // Serialize size info using XDR
+        // Serialize size info using XDR to get actual overhead
         let mut size_raw = Vec::new();
         serde_xdr::to_writer(&mut size_raw, &pkt_size)
             .map_err(|e| Error::Serialization(e.to_string()))?;
@@ -193,7 +212,11 @@ impl EncryptedPacket {
             data[..pkt_size_overhead].copy_from_slice(&size_raw);
             
             let nonce = Nonce::from_slice(&nonce_bytes);
-            let ct = aead_size.encrypt(nonce, data[..ENC_BLK_SIZE].as_ref())
+            let payload = Payload {
+                msg: &data[..ENC_BLK_SIZE],
+                aad: ad.as_bytes(),
+            };
+            let ct = aead_size.encrypt(nonce, payload)
                 .map_err(|_| Error::Encryption("Size block encryption failed".to_string()))?;
             writer.write_all(&ct)?;
             ctr_incr(&mut nonce_bytes);
@@ -224,7 +247,11 @@ impl EncryptedPacket {
         
         // Encrypt final block
         let nonce = Nonce::from_slice(&nonce_bytes);
-        let ct = aead_last.encrypt(nonce, data.as_ref())
+        let payload = Payload {
+            msg: data.as_ref(),
+            aad: ad.as_bytes(),
+        };
+        let ct = aead_last.encrypt(nonce, payload)
             .map_err(|_| Error::Encryption("Final block encryption failed".to_string()))?;
         writer.write_all(&ct)?;
         
@@ -251,11 +278,13 @@ impl EncryptedPacket {
 
     /// Decrypt a packet from input (equivalent to PktEncRead in Go)
     pub fn decrypt_packet<R: Read, W: Write>(
+        our_node: &LocalNNCPNode,
+        their_nodes: &std::collections::HashMap<NodeID, RemoteNNCPNode>,
         mut reader: R,
         mut writer: W,
-        _signature_verify: bool,
+        signature_verify: bool,
         shared_key_cached: Option<&[u8]>,
-    ) -> Result<(Vec<u8>, i64), Error> {
+    ) -> Result<(Vec<u8>, RemoteNNCPNode, i64), Error> {
         // Read and deserialize header using XDR
         let pkt_enc: PktEnc = serde_xdr::from_reader(&mut reader)
             .map_err(|e| Error::Serialization(e.to_string()))?;
@@ -264,6 +293,15 @@ impl EncryptedPacket {
         if pkt_enc.magic != NNCP_E_V6_MAGIC {
             return Err(Error::BadMagic);
         }
+        
+        // Verify recipient is us
+        if pkt_enc.recipient != our_node.id() {
+            return Err(Error::Decryption("Invalid recipient".to_string()));
+        }
+        
+        // Get sender node
+        let their_node = their_nodes.get(&pkt_enc.sender)
+            .ok_or_else(|| Error::Decryption("Unknown sender".to_string()))?;
         
         // Prepare TBS for signature verification
         let tbs = PktTbs {
@@ -278,14 +316,34 @@ impl EncryptedPacket {
         serde_xdr::to_writer(&mut tbs_raw, &tbs)
             .map_err(|e| Error::Serialization(e.to_string()))?;
         
-        // Associated data
-        let _ad = blake3::hash(&tbs_raw);
+        // Verify signature if requested
+        if signature_verify {
+            let signature = ed25519_compact::Signature::from_slice(&pkt_enc.sign)
+                .map_err(|_| Error::Decryption("Invalid signature format".to_string()))?;
+            
+            if their_node.signpub.verify(&tbs_raw, &signature).is_err() {
+                return Err(Error::Decryption("Invalid signature".to_string()));
+            }
+        }
         
-        // Derive shared key (placeholder for now)
+        // Associated data
+        let ad = blake3::hash(&tbs_raw);
+        
+        // Derive shared key
         let shared_key = if let Some(cached) = shared_key_cached {
             cached.to_vec()
         } else {
-            vec![0u8; 32] // Placeholder
+            // Perform X25519 key exchange manually
+            let ephemeral_pub = X25519PublicKey::from(pkt_enc.exch_pub);
+            
+            // Extract the raw bytes from our secret key and perform DH  
+            let our_secret_bytes = our_node.exchprv.as_bytes();
+            let mut shared_secret = [0u8; 32];
+            
+            // Use low-level X25519 function
+            use x25519_dalek::x25519;
+            shared_secret.copy_from_slice(&x25519(*our_secret_bytes, ephemeral_pub.to_bytes()));
+            shared_secret.to_vec()
         };
         
         // Derive decryption keys
@@ -309,7 +367,11 @@ impl EncryptedPacket {
                 Ok(n) if n == ENC_BLK_SIZE + POLY1305_TAG_SIZE => {
                     // Full encrypted block
                     let nonce = Nonce::from_slice(&nonce_bytes);
-                    let plaintext = aead_full.decrypt(nonce, &ct[..n])
+                    let payload = Payload {
+                        msg: &ct[..n],
+                        aad: ad.as_bytes(),
+                    };
+                    let plaintext = aead_full.decrypt(nonce, payload)
                         .map_err(|_| Error::Decryption("Full block decryption failed".to_string()))?;
                     
                     size += ENC_BLK_SIZE as i64;
@@ -319,7 +381,11 @@ impl EncryptedPacket {
                 Ok(n) if n > POLY1305_TAG_SIZE => {
                     // Final block with size info
                     let nonce = Nonce::from_slice(&nonce_bytes);
-                    let mut plaintext = aead_size.decrypt(nonce, &ct[..n])
+                    let payload = Payload {
+                        msg: &ct[..n],
+                        aad: ad.as_bytes(),
+                    };
+                    let mut plaintext = aead_size.decrypt(nonce, payload)
                         .map_err(|_| Error::Decryption("Size block decryption failed".to_string()))?;
                     
                     // Extract size info
@@ -352,7 +418,11 @@ impl EncryptedPacket {
                         
                         ctr_incr(&mut nonce_bytes);
                         let nonce = Nonce::from_slice(&nonce_bytes);
-                        plaintext = aead_full.decrypt(nonce, &ct[..n])
+                        let payload = Payload {
+                            msg: &ct[..n],
+                            aad: ad.as_bytes(),
+                        };
+                        plaintext = aead_full.decrypt(nonce, payload)
                             .map_err(|_| Error::Decryption("Continuation block decryption failed".to_string()))?;
                     }
                     
@@ -387,7 +457,7 @@ impl EncryptedPacket {
             }
         }
         
-        Ok((shared_key, size))
+        Ok((shared_key, their_node.clone(), size))
     }
 }
 
@@ -405,23 +475,35 @@ fn ctr_incr(nonce: &mut [u8; 12]) {
 }
 
 /// Calculate size with authentication tags (equivalent to sizeWithTags in Go)
-fn size_with_tags(size: i64) -> i64 {
-    let mut full_size = size + PKT_SIZE_OVERHEAD;
+fn size_with_tags(size: i64) -> Result<i64, Error> {
+    let pkt_size_overhead = Packet::size_overhead()?;
+    let mut full_size = size + pkt_size_overhead;
     full_size += (size / ENC_BLK_SIZE as i64) * POLY1305_TAG_SIZE as i64;
     if size % ENC_BLK_SIZE as i64 != 0 {
         full_size += POLY1305_TAG_SIZE as i64;
     }
-    full_size
+    Ok(full_size)
 }
 
 /// Calculate padding size (equivalent to sizePadCalc in Go)
-fn size_pad_calc(size_payload: i64, min_size: i64, wrappers: i32) -> i64 {
-    let mut expected_size = size_payload - PKT_OVERHEAD;
+fn size_pad_calc(
+    size_payload: i64, 
+    min_size: i64, 
+    wrappers: i32,
+    packet: &Packet,
+    sender: &[u8; 32],
+    recipient: &[u8; 32],
+    nice: u8,
+) -> Result<i64, Error> {
+    let pkt_overhead = packet.overhead()?;
+    let pkt_enc_overhead = Packet::enc_overhead(nice, sender, recipient)?;
+    
+    let mut expected_size = size_payload - pkt_overhead;
     for _ in 0..wrappers {
-        expected_size = PKT_ENC_OVERHEAD + size_with_tags(PKT_OVERHEAD + expected_size);
+        expected_size = pkt_enc_overhead + size_with_tags(pkt_overhead + expected_size)?;
     }
     let size_pad = min_size - expected_size;
-    if size_pad < 0 { 0 } else { size_pad }
+    Ok(if size_pad < 0 { 0 } else { size_pad })
 }
 
 /// Verify padding (equivalent to padding verification in Go)
@@ -482,6 +564,20 @@ impl<R1: Read, R2: Read> Read for MultiReader<R1, R2> {
             self.second.read(buf)
         }
     }
+}
+
+/// Read exactly `buf.len()` bytes from reader, equivalent to Go's io.ReadFull
+fn read_full<R: Read>(reader: &mut R, buf: &mut [u8]) -> Result<usize, Error> {
+    let mut total = 0;
+    while total < buf.len() {
+        match reader.read(&mut buf[total..]) {
+            Ok(0) => break, // EOF
+            Ok(n) => total += n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(Error::Io(e)),
+        }
+    }
+    Ok(total)
 }
 
 #[cfg(test)]

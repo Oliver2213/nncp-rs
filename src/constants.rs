@@ -36,10 +36,6 @@ pub const DERIVE_KEY_FULL_CTX: &str = "NNCPE\x00\x00\x06 FULL";
 pub const DERIVE_KEY_SIZE_CTX: &str = "NNCPE\x00\x00\x06 SIZE"; 
 pub const DERIVE_KEY_PAD_CTX: &str = "NNCPE\x00\x00\x06 PAD";
 
-/// Packet overhead sizes (simplified estimates)
-pub const PKT_OVERHEAD: i64 = 11;
-pub const PKT_ENC_OVERHEAD: i64 = 120;
-pub const PKT_SIZE_OVERHEAD: i64 = 16;
 
 /// Padding buffer size for streaming
 pub const PAD_BUFFER_SIZE: usize = 8192;

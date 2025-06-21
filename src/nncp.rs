@@ -26,6 +26,7 @@ pub struct LocalNNCPNode {
     pub noise_kp: snow::Keypair,
 }
 
+#[derive(Clone)]
 pub struct RemoteNNCPNode {
     /// exchange public key
     pub exchpub: crypto_box::PublicKey,
