@@ -65,6 +65,9 @@ pub struct RemoteNodeDiskConfig {
     pub exchpub: String,
     /// Public noise protocol key
     pub noisepub: Option<String>,
+    /// Routing path: list of intermediate node names to reach this node
+    #[serde(default)]
+    pub via: Vec<String>,
 }
 
 impl From<LocalNNCPNode> for LocalNodeDiskConfig {
@@ -95,10 +98,17 @@ impl From<RemoteNNCPNode> for RemoteNodeDiskConfig {
         let encoded_signpub = encode(b32_alph, node.signpub.as_ref());
         let encoded_exchpub = encode(b32_alph, &node.exchpub.as_bytes().clone());
         let encoded_noisepub: Option<String> = node.noisepub.map(|np| encode(b32_alph, &np));
+        
+        // Convert via NodeIDs to base32 encoded strings
+        let via: Vec<String> = node.via.iter()
+            .map(|node_id| encode(b32_alph, node_id))
+            .collect();
+            
         RemoteNodeDiskConfig {
             signpub: encoded_signpub,
             exchpub: encoded_exchpub,
             noisepub: encoded_noisepub,
+            via,
         }
     }
 }

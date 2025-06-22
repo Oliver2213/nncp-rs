@@ -251,7 +251,14 @@ impl Context {
                 noisepub = None;
             }
         }
-        let neighbor = RemoteNNCPNode::new(signpub_bytes, exchpub_bytes, noisepub)?;
+        
+        // Process via field: convert node names to NodeIDs
+        // Note: This is a simplified implementation that assumes via node names
+        // are already resolved. In a full implementation, we'd need to resolve
+        // node names to NodeIDs from the neighbor configuration.
+        let via: Vec<nncp_rs::nncp::NodeID> = Vec::new(); // TODO: Implement via node name resolution
+        
+        let neighbor = RemoteNNCPNode::new(signpub_bytes, exchpub_bytes, noisepub, via)?;
         Ok(neighbor)
     }
 }

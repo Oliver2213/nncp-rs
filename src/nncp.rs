@@ -26,7 +26,7 @@ pub struct LocalNNCPNode {
     pub noise_kp: snow::Keypair,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct RemoteNNCPNode {
     /// exchange public key
     pub exchpub: crypto_box::PublicKey,
@@ -35,6 +35,10 @@ pub struct RemoteNNCPNode {
     /// Optional noise protocol public key, for synchronous online exchanges
     /// If we don't have this, packets from this node can only be delivered asynchronously; we don't know the noise key to use the internet for real-time communication.
     pub noisepub: Option<Vec<u8>>,
+    /// Routing path: list of intermediate node IDs to reach this node
+    /// If empty, packets are sent directly to this node.
+    /// If present, packets are routed through these intermediate nodes in order.
+    pub via: Vec<NodeID>,
 }
 
 impl LocalNNCPNode {
@@ -96,6 +100,7 @@ impl RemoteNNCPNode {
         signpub_bytes: [u8; 32],
         exchpub_bytes: [u8; 32],
         noisepub_bytes: Option<Vec<u8>>,
+        via: Vec<NodeID>,
     ) -> Result<Self, Error> {
         let signpub = ed25519_compact::PublicKey::from_slice(&signpub_bytes)?;
         let exchpub = crypto_box::PublicKey::from(exchpub_bytes);
@@ -104,6 +109,7 @@ impl RemoteNNCPNode {
             signpub,
             exchpub,
             noisepub,
+            via,
         })
     }
     /// Returns this node's ID as bytes.

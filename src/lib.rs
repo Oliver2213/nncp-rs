@@ -8,6 +8,7 @@ pub mod nncp;
 pub mod errors;
 pub mod packet;
 pub mod magic;
+pub mod routing;
 
 // Re-export key components for easier access
 pub use errors::NNCPError;
