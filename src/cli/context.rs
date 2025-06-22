@@ -187,25 +187,79 @@ impl Context {
         replaced
     }
 
-    /// Load all known neighbor nodes from config, parsing each into a `RemoteNNCPNode` and adding them to this context, keyed by id and friendly name
+    /// Load all known neighbor nodes from config using two-pass loading
+    /// 
+    /// First pass: Create nodes without via resolution
+    /// Second pass: Resolve via node names to NodeIDs after all nodes are loaded
     pub fn set_neighbors(
         &mut self,
         neighbors_config: &HashMap<String, RemoteNodeDiskConfig>,
     ) -> Result<(), Error> {
-        // for each (friendly name, remote node) in the map, parse the node's keys, create an instance and save it under context.neighbors[id]
-        // Later: via parsing, making sure that if a neighbor says it routes via another, we have those nodes information
-        for (name, node) in neighbors_config {
-            trace!("Parsing neighbor-node '{}'", &name);
-            let neighbor = Context::parse_remote_node(node)
+        // First pass: Create all nodes without via resolution
+        // Store via strings for second pass
+        let mut via_strings: HashMap<nncp_rs::nncp::NodeID, Vec<String>> = HashMap::new();
+        
+        for (name, node_config) in neighbors_config {
+            trace!("First pass: Parsing neighbor-node '{}'", &name);
+            let neighbor = Context::parse_remote_node_without_via(node_config)
                 .context(format!("Parsing neighbor-node '{}'", &name))?;
+            
+            // Store via strings for second pass resolution
+            if !node_config.via.is_empty() {
+                via_strings.insert(neighbor.id(), node_config.via.clone());
+            }
+            
             self.add_neighbor(name, neighbor);
-            trace!("Node added to context");
+            trace!("Node added to context (first pass)");
         }
+        
+        // Second pass: Resolve via node names to NodeIDs
+        for (node_id, via_names) in via_strings {
+            trace!("Second pass: Resolving via paths for node {:?}", 
+                   base32::encode(base32::Alphabet::RFC4648 { padding: false }, &node_id));
+            
+            let mut resolved_via = Vec::new();
+            for via_name in via_names {
+                match self.neighbor_aliases.get(&via_name) {
+                    Some(via_node_id) => {
+                        resolved_via.push(*via_node_id);
+                        trace!("Resolved via node '{}' to {:?}", via_name, 
+                               base32::encode(base32::Alphabet::RFC4648 { padding: false }, via_node_id));
+                    }
+                    None => {
+                        // Try to decode as base32 NodeID
+                        match base32::decode(base32::Alphabet::RFC4648 { padding: false }, &via_name) {
+                            Some(bytes) if bytes.len() == 32 => {
+                                let mut via_node_id = [0u8; 32];
+                                via_node_id.copy_from_slice(&bytes);
+                                resolved_via.push(via_node_id);
+                                trace!("Resolved via node '{}' as direct NodeID", via_name);
+                            }
+                            _ => {
+                                return Err(anyhow::anyhow!(
+                                    "Unknown via node '{}' for node {:?}", 
+                                    via_name,
+                                    base32::encode(base32::Alphabet::RFC4648 { padding: false }, &node_id)
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Update the node's via field
+            if let Some(node) = self.neighbors.get_mut(&node_id) {
+                node.via = resolved_via;
+                trace!("Updated via paths for node {:?}", 
+                       base32::encode(base32::Alphabet::RFC4648 { padding: false }, &node_id));
+            }
+        }
+        
         Ok(())
     }
 
-    pub fn parse_remote_node(node: &RemoteNodeDiskConfig) -> Result<RemoteNNCPNode, Error> {
-        // Ugh, right now this is going to be ugly. Later, abstract this decoding and converting to runtime struct into some method of each that just accepts the disk config versions or something
+    /// Parse a remote node without via resolution (for first pass loading)
+    pub fn parse_remote_node_without_via(node: &RemoteNodeDiskConfig) -> Result<RemoteNNCPNode, Error> {
         let b32_alph = RFC4648 { padding: false };
         let signpub_b32 = decode(b32_alph, &node.signpub);
         let exchpub_b32 = decode(b32_alph, &node.exchpub);
@@ -260,5 +314,13 @@ impl Context {
         
         let neighbor = RemoteNNCPNode::new(signpub_bytes, exchpub_bytes, noisepub, via)?;
         Ok(neighbor)
+    }
+    
+    /// Parse a remote node (backwards compatibility - calls parse_remote_node_without_via)
+    /// 
+    /// Note: This creates a node with empty via field. For proper via resolution,
+    /// use the two-pass loading in set_neighbors().
+    pub fn parse_remote_node(node: &RemoteNodeDiskConfig) -> Result<RemoteNNCPNode, Error> {
+        Context::parse_remote_node_without_via(node)
     }
 }

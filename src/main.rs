@@ -1,9 +1,9 @@
 //! nncp-rs - node to node copy tools
 
-use clap::Parser;
 mod cli;
 use anyhow::Error;
 use log::debug;
+use clap::Parser;
 
 fn main() -> Result<(), Error> {
     env_logger::init();
