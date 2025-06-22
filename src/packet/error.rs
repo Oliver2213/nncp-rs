@@ -75,4 +75,8 @@ pub enum Error {
     /// Decryption error
     #[error("Decryption error: {0}")]
     Decryption(String),
+    
+    /// Invalid packet format
+    #[error("Invalid packet format: {0}")]
+    InvalidPacketFormat(String),
 }
