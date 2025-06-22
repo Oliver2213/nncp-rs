@@ -33,6 +33,18 @@ fn main() -> Result<(), Error> {
         cli::Commands::Stat { node, pkt } => {
             cli::commands::show_statistics(ctx, node.as_deref(), *pkt)?
         },
+        cli::Commands::Ack { all, node, pkt, nice, minsize, via, quiet } => {
+            cli::commands::send_acknowledgements(
+                ctx,
+                *all,
+                node.as_deref(),
+                pkt.as_deref(),
+                nice,
+                *minsize,
+                via.as_deref(),
+                *quiet
+            )?
+        },
     }
     Ok(())
 }

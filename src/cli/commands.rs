@@ -1,6 +1,7 @@
 //! NNCP command implementations
 
 // Re-export the command modules
+pub mod ack;
 pub mod hash;
 pub mod pkt;
 pub mod stat;
@@ -67,6 +68,31 @@ pub enum Commands {
         /// Show individual packet listing
         #[arg(long, default_value_t = false)]
         pkt: bool,
+    },
+    /// Send packet receipt acknowledgement
+    #[command(name="ack")]
+    Ack {
+        /// ACK all rx packets for all nodes
+        #[arg(long, default_value_t = false)]
+        all: bool,
+        /// ACK rx packets for specific nodes (comma-separated)
+        #[arg(short, long)]
+        node: Option<String>,
+        /// ACK only that specific packet
+        #[arg(long)]
+        pkt: Option<String>,
+        /// Outbound packet niceness
+        #[arg(long, default_value = "N")]
+        nice: String,
+        /// Minimal required resulting packet size in KiB
+        #[arg(long)]
+        minsize: Option<i64>,
+        /// Override Via path to destination node (ignored with --all)
+        #[arg(long)]
+        via: Option<String>,
+        /// Print only errors
+        #[arg(short, long, default_value_t = false)]
+        quiet: bool,
     }
 }
 
@@ -90,6 +116,7 @@ pub struct Cli {
 }
 
 // Re-export the command functions for backwards compatibility
+pub use ack::send_acknowledgements;
 pub use hash::hash_file;
 pub use pkt::parse_packet;
 pub use stat::show_statistics;
