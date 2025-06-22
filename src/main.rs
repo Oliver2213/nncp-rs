@@ -30,6 +30,9 @@ fn main() -> Result<(), Error> {
         cli::Commands::Pkt { overheads, dump, decompress } => {
             cli::commands::parse_packet(*overheads, *dump, *decompress)?
         },
+        cli::Commands::Stat { node, pkt } => {
+            cli::commands::show_statistics(ctx, node.as_deref(), *pkt)?
+        },
     }
     Ok(())
 }
