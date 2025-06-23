@@ -28,7 +28,7 @@ pub fn init(ctx: Context, directory: Option<PathBuf>, spool: Option<PathBuf>) ->
     if config_existed {
         debug!("Config exists; prompting user y/n to recreate");
         if !Confirm::new()
-            .with_prompt("You already have a configuration file. Are you sure you want to delete it and create a new one?")
+            .with_prompt(&format!("You already have a configuration file at {}. Are you sure you want to delete it and create a new one?", config_path.display()))
             .interact()? 
         {
             println!("Initialization aborted.");
