@@ -18,7 +18,14 @@ use nncp_rs::constants;
 /// all NNCP subcommands
 pub enum Commands {
     /// Initialize NNCP configuration and spool directory
-    Init,
+    Init {
+        /// Directory to create config in (defaults to current default location)
+        #[arg(short, long)]
+        directory: Option<PathBuf>,
+        /// Spool directory path (defaults to .nncp-spool in config directory)
+        #[arg(short, long)]
+        spool: Option<PathBuf>,
+    },
     /// Generates a node and prints it's base 32 encoded keys
     #[command(name="gen-node")]
     GenerateNode,

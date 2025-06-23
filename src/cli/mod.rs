@@ -6,6 +6,7 @@
 pub mod commands;
 pub mod config;
 pub mod context;
+pub mod init;
 pub mod node;
 pub mod via;
 
