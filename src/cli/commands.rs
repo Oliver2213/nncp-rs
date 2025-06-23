@@ -19,11 +19,11 @@ use nncp_rs::constants;
 pub enum Commands {
     /// Initialize NNCP configuration and spool directory
     Init {
-        /// Directory to create config in (defaults to current default location)
-        #[arg(short, long)]
+        /// Directory to create config in
+        #[arg(short, long, help = "Directory to create config in (defaults to OS-specific config directory)")]
         directory: Option<PathBuf>,
-        /// Spool directory path (defaults to .nncp-spool in config directory)
-        #[arg(short, long)]
+        /// Spool directory path
+        #[arg(short, long, help = "Spool directory path (defaults to .nncp-spool in config directory, or OS-specific spool directory if no config directory specified)")]
         spool: Option<PathBuf>,
     },
     /// Generates a node and prints it's base 32 encoded keys
