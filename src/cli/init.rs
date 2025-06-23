@@ -8,17 +8,10 @@ use log::debug;
 
 /// Initialize NNCP configuration and spool directory
 pub fn init(ctx: Context, directory: Option<PathBuf>, spool: Option<PathBuf>) -> Result<(), Error> {
-    // Show defaults if no arguments provided
-    if directory.is_none() && spool.is_none() {
-        println!("Using default directories:");
-        println!("  Config: {}", ctx.config_path.parent().unwrap_or_else(|| std::path::Path::new(".")).display());
-        println!("  Spool:  {}", ctx.spool_path.display());
-        println!();
-    }
-
-    // Handle directory option - update config path if provided
+    // Handle directory option - update config path if provided  
     let config_path = if let Some(ref dir) = directory {
-        dir.join("nncp.toml") // or whatever the default config filename is
+        // Use the same naming convention as confy would use
+        dir.join("nncp.toml")
     } else {
         ctx.config_path.clone()
     };
@@ -42,15 +35,15 @@ pub fn init(ctx: Context, directory: Option<PathBuf>, spool: Option<PathBuf>) ->
             return Ok(());
         }
         remove_file(&config_path)?;
-        println!("Deleted existing config");
+        debug!("Deleted existing config at {}", config_path.display());
     }
 
     // Create new context with updated paths
     let mut new_ctx = Context::new(&config_path, &ctx.log_path, &spool_path);
     new_ctx.load_config()?;
     
-    let node = new_ctx.local_node.expect("No default node was created with config");
-    println!("Generated new config at {}", &new_ctx.config_path.display());
+    let node = new_ctx.local_node.as_ref().expect("No default node was created with config");
+    debug!("Generated new config at {}", &new_ctx.config_path.display());
     
     // Handle spool directory - ask user if the determined path is okay
     let mut final_spool_path = new_ctx.spool_path.clone();
@@ -68,16 +61,21 @@ pub fn init(ctx: Context, directory: Option<PathBuf>, spool: Option<PathBuf>) ->
         
         // Update context with new spool path
         new_ctx.spool_path = final_spool_path.clone();
-        // TODO: Save updated config with new spool path
-        // This would require access to the config saving functionality
+        
+        // Update the config with the new spool path and save it
+        if let Some(ref mut config) = new_ctx.config {
+            config.spool = final_spool_path.clone();
+            new_ctx.save_config()?;
+            debug!("Updated config with new spool directory");
+        }
     }
     
     // Create spool directory
     if !final_spool_path.exists() {
         create_dir_all(&final_spool_path)?;
-        println!("Created spool directory: {}", final_spool_path.display());
+        debug!("Created spool directory: {}", final_spool_path.display());
     } else {
-        println!("Spool directory already exists: {}", final_spool_path.display());
+        debug!("Spool directory already exists: {}", final_spool_path.display());
     }
     
     println!("NNCP initialization complete!");

@@ -1,6 +1,7 @@
 //! Context related to a command invocation
 
 use crate::cli::config::RemoteNodeDiskConfig;
+use nncp_rs::constants::DEFAULT_CONFIG_FILENAME;
 
 use super::config::{DiskConfig, LocalNodeDiskConfig};
 use anyhow::Context as anyhow_context;
@@ -12,6 +13,7 @@ use nncp_rs::NNCPError;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+
 
 /// Related context for nncp operations: config, spool, node keys, oh my!
 /// Gets passed to every command function.
@@ -39,23 +41,30 @@ impl ::std::default::Default for Context {
     /// Returns a default command context, using default, user-local directories.
     /// Paths for the config file, spool directory and log file are set.
     fn default() -> Self {
-        let config_path = confy::get_configuration_file_path("nncp-rs", "nncp").unwrap();
-        // Note: this structure (rs as tld, empty string as domain, app name as subdomain) is chosen to be the same as used by confy, which creates the path for the config - so they're all in the same place.
-        let project_dir = directories::ProjectDirs::from("rs", "", "nncp")
-            .expect("Unable to determine project directory");
-        let data_path = project_dir.data_local_dir();
-        let mut spool_path = PathBuf::from(&data_path);
-        spool_path.push("spool");
-        let mut log_path = PathBuf::from(data_path);
-        log_path.push("nncp.log");
+        let (config_path, spool_path, log_path) = Context::default_paths();
         Context::new(config_path, log_path, spool_path)
     }
 }
 
 impl Context {
+    /// Get default paths using user-specified data directory
+    /// Returns (config_path, spool_path, log_path)
+    fn default_paths() -> (PathBuf, PathBuf, PathBuf) {
+        let project_dir = directories::ProjectDirs::from("", "", "nncp")
+            .expect("Unable to determine project directory");
+        let data_path = project_dir.data_local_dir();
+        let mut config_path = PathBuf::from(&data_path);
+        config_path.push(DEFAULT_CONFIG_FILENAME);
+        let mut spool_path = PathBuf::from(&data_path);
+        spool_path.push("spool");
+        let mut log_path = PathBuf::from(data_path);
+        log_path.push("nncp.log");
+        (config_path, spool_path, log_path)
+    }
+    
     /// Get the default config directory as a string for clap defaults
     pub fn default_config_dir_string() -> String {
-        let config_path = confy::get_configuration_file_path("nncp-rs", "nncp").unwrap();
+        let (config_path, _, _) = Self::default_paths();
         config_path.parent()
             .unwrap_or_else(|| std::path::Path::new("."))
             .display()
@@ -64,11 +73,7 @@ impl Context {
     
     /// Get the default spool directory as a string for clap defaults
     pub fn default_spool_dir_string() -> String {
-        let project_dir = directories::ProjectDirs::from("rs", "", "nncp")
-            .expect("Unable to determine project directory");
-        let data_path = project_dir.data_local_dir();
-        let mut spool_path = std::path::PathBuf::from(&data_path);
-        spool_path.push("spool");
+        let (_, spool_path, _) = Self::default_paths();
         spool_path.display().to_string()
     }
 
@@ -107,6 +112,20 @@ impl Context {
 
         self.config = Some(config);
         debug!("Set up context");
+        Ok(())
+    }
+
+    /// Save the current config to `config_path`
+    /// Returns any errors encountered in writing the config file
+    pub fn save_config(&self) -> Result<(), Error> {
+        debug!("Saving config");
+        debug!("Config path: {}", &self.config_path.display());
+        if let Some(ref config) = self.config {
+            confy::store_path(&self.config_path, config).context("couldn't save nncp configuration")?;
+            debug!("Config saved successfully");
+        } else {
+            return Err(anyhow!("No config to save"));
+        }
         Ok(())
     }
 

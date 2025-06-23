@@ -78,3 +78,6 @@ pub const NICE_BULK_BASE: u8 = 224;
 
 /// Maximum niceness value
 pub const NICE_MAX: u8 = 255;
+
+/// Default configuration filename
+pub const DEFAULT_CONFIG_FILENAME: &str = "nncp.toml";
