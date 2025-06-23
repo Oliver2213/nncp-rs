@@ -2,7 +2,7 @@ use super::{Context};
 use anyhow::Error;
 use dialoguer::{Confirm, Input};
 use nncp_rs::nncp::LocalNNCPNode;
-use std::fs::{create_dir_all, remove_file};
+use std::fs::{create_dir_all, remove_file, read_dir};
 use std::path::PathBuf;
 use log::debug;
 
@@ -27,8 +27,25 @@ pub fn init(ctx: Context, directory: Option<PathBuf>, spool: Option<PathBuf>) ->
     let config_existed = config_path.exists();
     if config_existed {
         debug!("Config exists; prompting user y/n to recreate");
+        
+        // Check if spool directory exists and is not empty
+        let spool_not_empty = if spool_path.exists() {
+            match read_dir(&spool_path) {
+                Ok(mut entries) => entries.next().is_some(),
+                Err(_) => false,
+            }
+        } else {
+            false
+        };
+        
+        let mut prompt = format!("You already have a configuration file at {}.", config_path.display());
+        if spool_not_empty {
+            prompt.push_str(&format!(" The spool directory at {} is not empty.", spool_path.display()));
+        }
+        prompt.push_str(" Are you sure you want to delete the config and create a new one?");
+        
         if !Confirm::new()
-            .with_prompt(&format!("You already have a configuration file at {}. Are you sure you want to delete it and create a new one?", config_path.display()))
+            .with_prompt(&prompt)
             .interact()? 
         {
             println!("Initialization aborted.");
