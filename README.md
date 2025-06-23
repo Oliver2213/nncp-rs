@@ -36,4 +36,4 @@ This is a port of [nncp](http://nncpgo.org) in rust, implementing the core NNCP 
 
 ## Roadmap
 
-See the [ROADMAP.md](nncp_packet/ROADMAP.md) file for the implementation plan.
+See the [ROADMAP](roadmap.md) file for the implementation plan.
