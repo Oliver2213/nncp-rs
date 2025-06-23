@@ -21,10 +21,10 @@ pub enum Commands {
     /// Initialize NNCP configuration and spool directory
     Init {
         /// Directory to create config in (uses OS-specific config directory if not specified)
-        #[arg(short, long)]
+        #[arg(short, long, value_name = "DIRECTORY")]
         directory: Option<PathBuf>,
         /// Spool directory path (uses OS-specific spool directory if not specified)
-        #[arg(short, long)]
+        #[arg(short, long, value_name = "SPOOL")]
         spool: Option<PathBuf>,
     },
     /// Generates a node and prints it's base 32 encoded keys

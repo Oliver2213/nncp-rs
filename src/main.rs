@@ -22,7 +22,9 @@ fn main() -> Result<(), Error> {
     }
     ctx.load_config()?;
     match &cli.command {
-        cli::Commands::Init { directory, spool } => cli::init::init(ctx, directory.clone(), spool.clone())?,
+        cli::Commands::Init { directory, spool } => {
+            cli::init::init(ctx, directory.clone(), spool.clone())?
+        },
         cli::Commands::GenerateNode => cli::node::generate_node(ctx)?,
         cli::Commands::PrintLocalNode{emojify} => cli::node::print_local_node(ctx, *emojify),
         cli::Commands::Hash { file, seek, force_fat, progress, debug } => {
