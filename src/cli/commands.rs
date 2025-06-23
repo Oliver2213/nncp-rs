@@ -12,6 +12,7 @@ use clap::Parser;
 use clap::Subcommand;
 use std::path::PathBuf;
 use nncp_rs::constants;
+use super::Context;
 
 #[derive(Subcommand)]
 #[deny(missing_docs)]
@@ -19,11 +20,11 @@ use nncp_rs::constants;
 pub enum Commands {
     /// Initialize NNCP configuration and spool directory
     Init {
-        /// Directory to create config in
-        #[arg(short, long, help = "Directory to create config in (defaults to OS-specific config directory)")]
+        /// Directory to create config in (uses OS-specific config directory if not specified)
+        #[arg(short, long)]
         directory: Option<PathBuf>,
-        /// Spool directory path
-        #[arg(short, long, help = "Spool directory path (defaults to .nncp-spool in config directory, or OS-specific spool directory if no config directory specified)")]
+        /// Spool directory path (uses OS-specific spool directory if not specified)
+        #[arg(short, long)]
         spool: Option<PathBuf>,
     },
     /// Generates a node and prints it's base 32 encoded keys

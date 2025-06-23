@@ -7,7 +7,15 @@ use std::path::PathBuf;
 use log::debug;
 
 /// Initialize NNCP configuration and spool directory
-pub fn init(mut ctx: Context, directory: Option<PathBuf>, spool: Option<PathBuf>) -> Result<(), Error> {
+pub fn init(ctx: Context, directory: Option<PathBuf>, spool: Option<PathBuf>) -> Result<(), Error> {
+    // Show defaults if no arguments provided
+    if directory.is_none() && spool.is_none() {
+        println!("Using default directories:");
+        println!("  Config: {}", ctx.config_path.parent().unwrap_or_else(|| std::path::Path::new(".")).display());
+        println!("  Spool:  {}", ctx.spool_path.display());
+        println!();
+    }
+
     // Handle directory option - update config path if provided
     let config_path = if let Some(ref dir) = directory {
         dir.join("nncp.toml") // or whatever the default config filename is

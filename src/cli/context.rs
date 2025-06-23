@@ -53,6 +53,25 @@ impl ::std::default::Default for Context {
 }
 
 impl Context {
+    /// Get the default config directory as a string for clap defaults
+    pub fn default_config_dir_string() -> String {
+        let config_path = confy::get_configuration_file_path("nncp-rs", "nncp").unwrap();
+        config_path.parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .display()
+            .to_string()
+    }
+    
+    /// Get the default spool directory as a string for clap defaults
+    pub fn default_spool_dir_string() -> String {
+        let project_dir = directories::ProjectDirs::from("rs", "", "nncp")
+            .expect("Unable to determine project directory");
+        let data_path = project_dir.data_local_dir();
+        let mut spool_path = std::path::PathBuf::from(&data_path);
+        spool_path.push("spool");
+        spool_path.display().to_string()
+    }
+
     /// Create an empty context, specifying paths for the config, spool and log
     pub fn new(
         config_path: impl AsRef<Path>,
